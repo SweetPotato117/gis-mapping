@@ -62,7 +62,8 @@ try {
         'lat' => floatval($_POST['lat']),
         'lng' => floatval($_POST['lng']),
         'open_hours' => mysqli_real_escape_string($conn, $_POST['open_hours'] ?? ''),
-        'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? '')
+        'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? ''),
+        'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : 0
     ];
     
     // Update the place

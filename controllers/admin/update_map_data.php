@@ -33,7 +33,8 @@ try {
         'lat' => floatval($_POST['lat']),
         'lng' => floatval($_POST['lng']),
         'open_hours' => mysqli_real_escape_string($conn, $_POST['open_hours'] ?? ''),
-        'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? '')
+        'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? ''),
+        'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : 0
     ];
 
     // Insert place into database
@@ -42,6 +43,12 @@ try {
     if (!$placeInserted) {
         throw new Exception('Failed to insert place data: ' . mysqli_error($conn));
     }
+
+    // Log received blur_services for debugging
+    $received_blur = isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : null;
+    error_log("[update_map_data] Received blur_services=" . var_export($received_blur, true));
+    error_log("[update_map_data] POST keys=" . json_encode(array_keys($_POST)));
+    error_log("[update_map_data] editRecord result (boolean): " . var_export($placeInserted, true));
 
     // Get the inserted place ID
     $place_id = mysqli_insert_id($conn);
@@ -162,7 +169,8 @@ try {
     echo json_encode([
         'success' => true,
         'message' => 'Location added successfully!',
-        'place_id' => $place_id
+        'place_id' => $place_id,
+        'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : 0
     ]);
 
 } catch (Exception $e) {

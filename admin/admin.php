@@ -174,12 +174,29 @@ include '../models/functions.php';
 
                     </form>
                 </div>
-
                 <!-- Services Tab -->
-                <div id="services" class="tab-pane">
-                    <div class="services-notice">
-                        <p>Please select a location type in the Overview tab to see available service options.</p>
-                    </div>
+                    <div id="services" class="tab-pane">
+                        <label style="margin-bottom:10px;display:block;">
+                            <input type="checkbox" id="blurServicesToggle" />
+                            Blur all services content
+                        </label>
+                        <div id="servicesBlurOverlay" style="
+                            display:none;
+                            position:absolute;
+                            z-index:1000;
+                            background:rgba(255,255,255,0.89);
+                            width:100%;
+                            height:100%;
+                            top:0;
+                            left:0;
+                            align-items:center;
+                            justify-content:center;
+                            text-align:center;">
+                            <div style="margin-top:150px;font-size:1.35em;color:#2a2a2a;width:90%;max-width:400px;">
+                                Go to the official website to view services
+                            </div>
+                        </div>
+                    
 
                     <!-- RESTAURANT SERVICES SECTION -->
                     <div id="foodServices" class="service-section" style="display:none;">
@@ -378,6 +395,7 @@ include '../models/functions.php';
                 
                 <!-- SERVICES TAB -->
                 <div id="detailServices" class="google-pane">
+                    <div id="detailWebsites"></div>
                     <div id="detailMenuContent"></div>
                     <div id="detailPhotos" class="photos-grid"></div>
                 </div>

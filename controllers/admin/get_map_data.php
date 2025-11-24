@@ -86,6 +86,7 @@ try {
             'lng' => isset($place['lng']) ? (float)$place['lng'] : 0.0,
             'open_hours' => $place['open_hours'] ?? '',
             'contact' => $place['contact'] ?? '',
+            'blur_services' => (int)($place['blur_services'] ?? 0),
             'hotel_websites' => $websiteLinks,
             'admin_id' => $adminId,
             'is_owner' => $isOwner,

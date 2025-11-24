@@ -1,7 +1,3 @@
-
-        
-// Search Admin Js
-
 document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('adminSearch');
     const searchResults = document.getElementById('searchResults');

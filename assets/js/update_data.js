@@ -13,6 +13,13 @@ formData.append('lng', locationData.lng);
 formData.append('open_hours', locationData.open_hours);
 formData.append('contact', locationData.contact);
 
+// Capture Blur Setting
+const blurToggle = document.getElementById('blurServicesToggle');
+const isBlurred = blurToggle && blurToggle.checked ? 1 : 0;
+formData.append('blur_services', isBlurred);
+console.log('Blur Toggle checked:', blurToggle?.checked);
+console.log('Blur Services being sent:', isBlurred);
+
 // Menu items
 if (locationData.menu && locationData.menu.length > 0) {
     locationData.menu.forEach((m, i) => {

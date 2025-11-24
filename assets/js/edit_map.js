@@ -149,16 +149,39 @@ async function fetchAndDisplayLocations() {
     }
 }
 
-
 // Load locations - now an async function
 async function loadLocations() {
-    locations = await fetchAndDisplayLocations(); 
+    // Note: In edit mode, fetchAndDisplayLocations returns an ARRAY containing the single location being edited
+    const fetchedLocations = await fetchAndDisplayLocations(); 
     
-    
-    if (Array.isArray(locations)) {
+    if (Array.isArray(fetchedLocations) && fetchedLocations.length > 0) {
+        locations = fetchedLocations;
+        
+        // --- NEW: Set Blur Checkbox State on Page Load ---
+        const currentLocation = locations[0]; // Since we are editing specific ID, it's the first item
+        const blurToggle = document.getElementById('blurServicesToggle');
+        
+        if (blurToggle && currentLocation) {
+            // Check if DB has it as 1 or "1"
+            const isBlurred = currentLocation.blur_services == 1;
+            blurToggle.checked = isBlurred;
+
+            // Trigger the change event manually so the visual blur effect (CSS) applies immediately
+            const event = new Event('change');
+            blurToggle.dispatchEvent(event);
+            
+            console.log('Loaded Blur Setting:', isBlurred);
+        }
+        // -------------------------------------------------
+
         locations.forEach((loc, index) => {
             addLocationMarker(loc, index);
         });
+        
+        // Center map on the location being edited
+        if (locations[0].lat && locations[0].lng) {
+            map.setView([locations[0].lat, locations[0].lng], 16);
+        }
     }
 }
 

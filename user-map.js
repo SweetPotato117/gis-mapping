@@ -78,9 +78,7 @@ const userLocationIcon = L.icon({
     popupAnchor: [1, -34]
 });
 
-
-
-// Marker management with directions button
+// Marker management with Google Maps style popup (with image header)
 function addLocationMarker(location, index) {
     const marker = L.marker([parseFloat(location.lat), parseFloat(location.lng)], {
         icon: getIconForType(location.type)
@@ -104,18 +102,65 @@ function addLocationMarker(location, index) {
         offset: [10, -5]
     });
 
+    // Get hero image - EXACT SAME LOGIC AS viewLocationDetails
+    let heroImageStyle = '';
+    if (location.highlights && location.highlights.length > 0 && location.highlights[0].image_url) {
+        heroImageStyle = `background-image: url(${location.highlights[0].image_url});`;
+    } else {
+        // Use green gradient as fallback
+        heroImageStyle = 'background: linear-gradient(135deg, #2d7a3e 0%, #1f5b2d 100%);';
+    }
+
+    // Create Google Maps style popup with SAME header structure as modal
     const popup = `
-        <div class="popup-title location-${location.type}">${location.name}</div>
-        <div class="popup-info">${formatType(location.type)}</div>
-        <div class="popup-info">${location.address || 'No address'}</div>
-        <button class="popup-btn" onclick="viewLocationDetails(${index})">View Details</button>
-        <button class="directions-btn" onclick="startNavigation(${location.lat}, ${location.lng}, '${escapeHtml(location.name)}')">
-            <i class="fas fa-directions"></i> Get Directions
-        </button>
+        <div class="google-popup">
+            <div class="modal-hero-image" style="${heroImageStyle}"></div>
+            <div class="popup-content">
+                <div class="popup-header">
+                    <h3 class="popup-title">${location.name}</h3>
+                    <p class="popup-category">${formatType(location.type)}</p>
+                </div>
+                <div class="popup-address">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>${location.address || 'No address'}</span>
+                </div>
+                <div class="popup-actions">
+                    <button class="popup-btn-secondary" onclick="viewLocationDetails(${index})">
+                        <i class="fas fa-info-circle"></i>
+                        View Details
+                    </button>
+                    <button class="popup-btn-primary" onclick="startNavigation(${location.lat}, ${location.lng}, '${escapeHtml(location.name)}')">
+                        <i class="fas fa-directions"></i>
+                        Directions
+                    </button>
+                </div>
+            </div>
+        </div>
     `;
-    
-    marker.bindPopup(popup);
-    markers[index] = {marker: marker, type: location.type, location: location};
+
+    marker.bindPopup(popup, {
+        maxWidth: 300,
+        className: 'google-style-popup'
+    });
+
+    markers[index] = {
+        marker: marker,
+        type: location.type,
+        location: location
+    };
+}
+
+// Helper function to get icon for popup placeholder
+function getIconClassForPopup(type) {
+    const icons = {
+        'restaurant': 'fa-utensils',
+        'hotels': 'fa-hotel',
+        'touristdestination': 'fa-camera',
+        'cafe': 'fa-coffee',
+        'carinderia': 'fa-hamburger',
+        'malls': 'fa-shopping-bag'
+    };
+    return icons[type] || 'fa-map-marker-alt';
 }
 
 async function fetchAndDisplayLocations() {
@@ -173,10 +218,6 @@ function escapeHtml(text) {
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 }
 
-// ====================================
-// LIVE LOCATION TRACKING
-// ====================================
-
 // Create navigation panel with simple show/hide functionality
 const navPanel = document.createElement('div');
 navPanel.className = 'navigation-panel';
@@ -208,10 +249,6 @@ navPanel.innerHTML = `
     </div>
 `;
 document.body.appendChild(navPanel);
-
-
-
-
 
 // Toggle location tracking
 function toggleLocationTracking() {
@@ -376,16 +413,11 @@ function updateGPSIndicator(accuracy) {
     indicator.className = `gps-indicator active ${statusClass}`;
     indicator.innerHTML = `<i class="fas fa-satellite-dish"></i> GPS: ${statusText} (${Math.round(accuracy)}m)`;
 }
-
-// ====================================
-// NAVIGATION WITH ROUTING
-// ====================================
-
 // Start navigation to destination
 function startNavigation(destLat, destLng, destName) {
     // Check if location tracking is active
     if (!isTrackingLocation || !userCurrentPosition) {
-        alert('Please enable location tracking first by clicking the location button');
+        alert('Please enable location tracking first by clicking the location button.');
         startLocationTracking();
         return;
     }
@@ -407,15 +439,13 @@ function startNavigation(destLat, destLng, destName) {
         routeWhileDragging: false,
         addWaypoints: false,
         draggableWaypoints: false,
-        fitSelectedRoutes: true,
+        fitSelectedRoutes: false, // CHANGED: Don't auto-fit to prevent map jumping
         showAlternatives: false,
         lineOptions: {
-            styles: [{color: '#4285F4', opacity: 0.8, weight: 6}]
+            styles: [{ color: '#4285F4', opacity: 0.8, weight: 6 }]
         },
         createMarker: function(i, wp) {
-            if (i === 0) {
-                return null; // Don't create marker for start point
-            }
+            if (i === 0) return null; // Don't create marker for start point
             return L.marker(wp.latLng, {
                 draggable: false,
                 icon: L.icon({
@@ -442,17 +472,18 @@ function startNavigation(destLat, destLng, destName) {
     isNavigating = true;
     document.getElementById('navigationPanel').classList.add('active');
 
-    // Update route every 1 second
+    // Update route every 2 seconds (increased from 1 second for better performance)
     if (navigationUpdateInterval) {
         clearInterval(navigationUpdateInterval);
     }
+    
     navigationUpdateInterval = setInterval(() => {
         if (isNavigating && userCurrentPosition) {
             updateNavigationRoute();
         }
-    }, 1000);
+    }, 2000);
 
-    console.log('Navigation started to:', destName);
+    console.log('Navigation started to', destName);
 }
 
 // Update navigation route with current position
@@ -560,10 +591,8 @@ function arrivedAtDestination() {
     stopNavigation();
 }
 
-// ====================================
-// SEARCH FUNCTIONALITY
-// ====================================
 
+// SEARCH FUNCTIONALITY
 const searchInput = document.getElementById('mapLocationSearch');
 const searchClearBtn = document.getElementById('mapSearchClear');
 let suggestionsList = null;
@@ -738,21 +767,17 @@ function navigateToLocation(location) {
 
     if (markerIndex !== -1) {
         const markerObj = markers[markerIndex];
-        map.flyTo([parseFloat(location.lat), parseFloat(location.lng)], 17, {
-            duration: 1.5,
-            easeLinearity: 0.25
-        });
+        // Changed from flyTo to setView for instant navigation without lock
+        map.setView([parseFloat(location.lat), parseFloat(location.lng)], 17);
 
         setTimeout(() => {
             markerObj.marker.openPopup();
-        }, 1600);
+        }, 100); // Reduced from 1600ms
     } else {
-        map.flyTo([parseFloat(location.lat), parseFloat(location.lng)], 17, {
-            duration: 1.5,
-            easeLinearity: 0.25
-        });
+        map.setView([parseFloat(location.lat), parseFloat(location.lng)], 17);
     }
 }
+
 
 function highlightMatch(text, searchTerm) {
     if (!text) return '';
@@ -800,10 +825,6 @@ function closeSuggestions() {
     }
     currentFocus = -1;
 }
-
-// ====================================
-// INITIALIZATION
-// ====================================
 
 loadLocations();
 startLocationTracking(); // Auto-start location tracking on page load
@@ -952,11 +973,6 @@ function filterMarkers(type) {
     }
   });
 }
-
-
-// ====================================
-// ZOOM-BASED VISIBILITY CONTROL (Google Maps Style)
-// ====================================
 
 // Update map container class based on zoom level
 function updateZoomClass() {
@@ -1136,12 +1152,11 @@ window.viewLocationDetails = async function(index) {
     // Set location details
     document.getElementById('modalTitle').textContent = location.name || 'Unknown Location';
     document.getElementById('locationCategory').textContent = formatType(location.type);
-    document.getElementById('detailType').textContent = formatType(location.type);
     document.getElementById('detailAddress').textContent = location.address || '-';
     document.getElementById('detailHours').textContent = location.open_hours || '-';
     document.getElementById('detailContact').textContent = location.contact || '-';
     document.getElementById('detailCoords').textContent = `${location.lat}, ${location.lng}`;
-    document.getElementById('detailDescription').textContent = location.description || 'No description available.';
+    document.getElementById('detailDescription').textContent = location.description || 'No information';
 
     // Hide sections if empty
     document.getElementById('hoursSection').style.display = location.open_hours ? 'flex' : 'none';
@@ -1243,5 +1258,49 @@ window.viewLocationDetails = async function(index) {
 
     // Switch to overview tab and show modal
     window.switchTab('overview');
+    
+    // Apply blur to services if blur_services = 1
+    console.log('Location blur_services:', location.blur_services);
+    
+    // Use setTimeout to ensure DOM is fully rendered before applying blur
+    setTimeout(function() {
+        if (window.applyModalServiceBlur) {
+            window.applyModalServiceBlur(location.blur_services == 1);
+        }
+    }, 50);
+    
     document.getElementById('locationModal').style.display = 'block';
 };
+
+// Recenter map on user's current location
+function recenterOnUser() {
+    if (!userCurrentPosition) {
+        alert('Location tracking not active. Please enable location tracking first.');
+        if (!isTrackingLocation) {
+            startLocationTracking();
+        }
+        return;
+    }
+
+    const lat = userCurrentPosition.coords.latitude;
+    const lng = userCurrentPosition.coords.longitude;
+    
+    // Smoothly center on user location without locking the map
+    map.setView([lat, lng], 16);
+    
+    // Optional: Show a brief notification
+    if (userLocationMarker) {
+        userLocationMarker.openPopup();
+        setTimeout(() => {
+            userLocationMarker.closePopup();
+        }, 2000);
+    }
+}
+
+// Add event listener for recenter button
+document.addEventListener('DOMContentLoaded', function() {
+    const recenterBtn = document.getElementById('recenterBtn');
+    if (recenterBtn) {
+        recenterBtn.addEventListener('click', recenterOnUser);
+    }
+});

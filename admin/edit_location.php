@@ -152,6 +152,26 @@ $is_superadmin = ($admin_role === 'superadmin');
 
                 <!-- Services Tab -->
                 <div id="services" class="tab-pane">
+                    <label style="margin-bottom:10px;display:block;">
+                        <input type="checkbox" id="blurServicesToggle" <?php echo ($place['blur_services'] == 1) ? 'checked' : ''; ?> />
+                        Blur all services content
+                    </label>
+                    <div id="servicesBlurOverlay" style="
+                        display:none;
+                        position:absolute;
+                        z-index:1000;
+                        background:rgba(255,255,255,0.89);
+                        width:100%;
+                        height:100%;
+                        top:0;
+                        left:0;
+                        align-items:center;
+                        justify-content:center;
+                        text-align:center;">
+                        <div style="margin-top:150px;font-size:1.35em;color:#2a2a2a;width:90%;max-width:400px;">
+                            Go to the official website to view services
+                        </div>
+                    </div>
 
                 <?php 
                 if ($place['type'] === 'restaurant') :
@@ -429,5 +449,58 @@ $is_superadmin = ($admin_role === 'superadmin');
     <script src="../assets/js/edit_script.js?v=1"></script>
     <script src="../assets/js/hamburger_menu.js?v=1"></script>
     <script src="../assets/js/edit_map.js?v=1"></script>
+    
+    <!-- Verify blur checkbox state -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const blurToggle = document.getElementById('blurServicesToggle');
+            if (blurToggle) {
+                console.log('Blur Services Toggle found');
+                console.log('Is checked:', blurToggle.checked);
+                console.log('Current blur_services value:', blurToggle.checked ? 1 : 0);
+                
+                // Listen for changes
+                    blurToggle.addEventListener('change', function() {
+                        console.log('Blur toggle changed to:', this.checked);
+                        console.log('Will be saved as:', this.checked ? 1 : 0);
+
+                        // Send immediate update to server to persist blur_services
+                        const placeIdEl = document.getElementById('placeId');
+                        const placeId = placeIdEl ? placeIdEl.value : null;
+                        if (!placeId) {
+                            console.error('No placeId found; cannot save blur setting');
+                            return;
+                        }
+
+                        const fd = new FormData();
+                        fd.append('id', placeId);
+                        fd.append('blur_services', this.checked ? 1 : 0);
+
+                        fetch('../controllers/admin/set_blur_services.php', {
+                            method: 'POST',
+                            body: fd,
+                            credentials: 'same-origin'
+                        }).then(r => r.json()).then(json => {
+                            if (json && json.success) {
+                                console.log('Blur persisted on server:', json.blur_services, 'affected_rows:', json.affected_rows);
+                                // If affected_rows === 0, the value was identical or DB didn't change; still reflect the requested state
+                                blurToggle.checked = json.blur_services == 1;
+                            } else {
+                                console.error('Failed to persist blur:', json);
+                                alert('Failed to save blur setting');
+                                // revert checkbox to previous state if failure
+                                blurToggle.checked = !blurToggle.checked;
+                            }
+                        }).catch(err => {
+                            console.error('Error updating blur setting:', err);
+                            alert('Error saving blur setting');
+                            blurToggle.checked = !blurToggle.checked;
+                        });
+                    });
+            } else {
+                console.error('Blur Services Toggle NOT found!');
+            }
+        });
+    </script>
 </body>
 </html>

@@ -47,9 +47,16 @@
         </button>
         <button class="filter-btn" data-filter="touristdestination">
             <i class="fas fa-camera"></i>
-            <span class="filter-text">Things to do</span>
+            <span class="filter-text">Tourist Attractions</span>
         </button>
     </div>
+
+    
+        <!-- Recenter on User Location Button 
+    <button class="recenter-location-btn" id="recenterBtn" title="Center on my location">
+        <i class="fas fa-location-arrow"></i>
+    </button> -->
+
 
     <!-- Main Content -->
     <div class="main-content">
@@ -151,6 +158,7 @@
                     </div>
                 </div>
                 
+                
                 <!-- Services Tab -->
                 <div id="tab-services" class="google-tab-pane">
                     <!-- Menu/Services (Only for restaurants) -->
@@ -188,12 +196,7 @@
                 <div id="tab-about" class="google-tab-pane">
                     <div class="about-section">
                         <div class="info-item">
-                            <div class="info-item-label">Type</div>
-                            <div class="info-item-value" id="detailType">-</div>
-                        </div>
-                        <div class="info-item">
-                            <div class="info-item-label">Description</div>
-                            <div class="info-item-value description" id="detailDescription">No description available.</div>
+                            <div class="info-item-value description" id="detailDescription">No information</div>
                         </div>
                     </div>
                 </div>
@@ -209,7 +212,113 @@
     <script src="assets/user-js/script.js?v=1"></script>
     <script src="user-map.js?v=1"></script>
 
+    <!-- Blur Services Logic -->
+    <style>
+        .service-blurred {
+            filter: blur(12px) !important;
+            opacity: 0.6 !important;
+            pointer-events: none !important;
+            user-select: none !important;
+        }
+    </style>
 
+    <script>
+        // Function to apply blur to modal services
+        function applyModalServiceBlur(shouldBlur) {
+            console.log('applyModalServiceBlur called with shouldBlur:', shouldBlur);
+            
+            // Blur the header/hero image
+            const heroImage = document.getElementById('modalHeroImage');
+            if (heroImage) {
+                if (shouldBlur) {
+                    heroImage.classList.add('service-blurred');
+                    console.log('Added blur to hero image');
+                } else {
+                    heroImage.classList.remove('service-blurred');
+                }
+            }
+            
+            // Blur menu section
+            const menuSection = document.getElementById('menuSection');
+            if (menuSection) {
+                if (shouldBlur) {
+                    menuSection.classList.add('service-blurred');
+                    console.log('Added blur to menu section');
+                } else {
+                    menuSection.classList.remove('service-blurred');
+                }
+            }
+            
+            // Blur menu content
+            const menuContent = document.getElementById('detailMenuContent');
+            if (menuContent) {
+                if (shouldBlur) {
+                    menuContent.classList.add('service-blurred');
+                    console.log('Added blur to menu content');
+                } else {
+                    menuContent.classList.remove('service-blurred');
+                }
+            }
+            
+            // Blur websites section
+            const websitesSection = document.getElementById('websitesSection');
+            if (websitesSection) {
+                if (shouldBlur) {
+                    websitesSection.classList.add('service-blurred');
+                    console.log('Added blur to websites section');
+                } else {
+                    websitesSection.classList.remove('service-blurred');
+                }
+            }
+            
+            // Blur websites content
+            const websites = document.getElementById('detailWebsites');
+            if (websites) {
+                if (shouldBlur) {
+                    websites.classList.add('service-blurred');
+                    console.log('Added blur to websites');
+                } else {
+                    websites.classList.remove('service-blurred');
+                }
+            }
+            
+            // Blur photos section
+            const photosSection = document.getElementById('photosSection');
+            if (photosSection) {
+                if (shouldBlur) {
+                    photosSection.classList.add('service-blurred');
+                    console.log('Added blur to photos section');
+                } else {
+                    photosSection.classList.remove('service-blurred');
+                }
+            }
+            
+            // Blur photos gallery
+            const photos = document.getElementById('detailPhotos');
+            if (photos) {
+                if (shouldBlur) {
+                    photos.classList.add('service-blurred');
+                    console.log('Added blur to photos');
+                } else {
+                    photos.classList.remove('service-blurred');
+                }
+            }
+        }
+
+        // Hook into location display to check blur_services
+        // This will be called from user-map.js when displaying location details
+        window.onDisplayLocationModal = function(location) {
+            console.log('Location blur_services:', location.blur_services);
+            applyModalServiceBlur(location.blur_services == 1);
+        };
+    </script>
+
+    <!-- Footer Disclaimer -->
+    <footer style="background-color: #f8f9fa; padding: 20px; text-align: center; border-top: 1px solid #dee2e6;">
+        <p style="margin: 0; color: #666; font-size: 14px;">
+            The information and data on this website are current as of October 2025
+        </p>
+    </footer>
 
 </body>
 </html>

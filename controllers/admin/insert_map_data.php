@@ -33,7 +33,8 @@ try {
         'lng' => floatval($_POST['lng']),
         'open_hours' => mysqli_real_escape_string($conn, $_POST['open_hours'] ?? ''),
         'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? ''),
-        'admin_id' => intval($_SESSION['admin_id'])  // ADD THIS LINE
+        'admin_id' => intval($_SESSION['admin_id']),
+        'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : 0
     ];
     
     // Insert place into database

@@ -344,6 +344,9 @@ window.viewLocationDetails = function (index) {
         }
     }
 
+    // Apply blur to services if blur_services = 1
+    applyModalServiceBlur(location.blur_services == 1);
+
     if (modal) modal.style.display = 'block';
 };
 
@@ -404,4 +407,38 @@ function displayImagePreviews(files, previewContainer) {
 
 // Initialize image previews on page load
 document.addEventListener('DOMContentLoaded', setupImagePreviews);
+
+// Function to apply blur to modal services
+function applyModalServiceBlur(shouldBlur) {
+    // Blur the header/cover image
+    const headerCover = document.getElementById('modalCoverImage');
+    if (headerCover) {
+        if (shouldBlur) {
+            headerCover.classList.add('service-blurred');
+        } else {
+            headerCover.classList.remove('service-blurred');
+        }
+    }
+    
+    // Blur menu content (which contains both menu and websites)
+    const menuContent = document.getElementById('detailMenuContent');
+    if (menuContent) {
+        if (shouldBlur) {
+            menuContent.classList.add('service-blurred');
+        } else {
+            menuContent.classList.remove('service-blurred');
+        }
+    }
+    
+    // Blur photos/highlights
+    const photosGallery = document.getElementById('detailPhotos');
+    if (photosGallery) {
+        if (shouldBlur) {
+            photosGallery.classList.add('service-blurred');
+        } else {
+            photosGallery.classList.remove('service-blurred');
+        }
+    }
+}
+
 

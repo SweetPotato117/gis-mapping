@@ -104,7 +104,6 @@ async function fetchAndDisplayLocations() {
     }
 }
 
-// Add this after the loadLocations function
 async function loadLocations() {
     locations = await fetchAndDisplayLocations();
     
@@ -124,7 +123,6 @@ async function loadLocations() {
     }
 }
 
-// Add this new function
 async function checkSuperadminStatus() {
     try {
         const response = await fetch('../controllers/admin/get_map_data.php');
@@ -224,12 +222,7 @@ function escapeHtml(text) {
         .replace(/'/g, '&#39;');
 }
 
-
-
-
-// ============================================
 // SEARCH FUNCTIONALITY WITH DROPDOWN SUGGESTIONS
-// ============================================
 const searchInput = document.getElementById('mapLocationSearch');
 const searchClearBtn = document.getElementById('mapSearchClear');
 let suggestionsList = null;
@@ -418,9 +411,6 @@ function closeSuggestions() {
     }
     currentFocus = -1;
 }
-// ============================================
-// END SEARCH FUNCTIONALITY
-// ============================================
 
 // Load locations on page load
 loadLocations();
@@ -514,11 +504,8 @@ window.GIS = {
 
 window.getIconForType = getIconForType;
 
-// ============================================
 // VIEW ALL LOCATIONS TOGGLE
-// ============================================
-
-let viewAllActive = false; // Default: show only admin's locations
+let viewAllActive = false; 
 
 // Initialize toggle button
 function initializeViewAllToggle() {
@@ -590,11 +577,6 @@ async function loadLocations() {
         applyViewFilter();
     }
 }
-
-// ============================================
-// GOOGLE MAPS STYLE MODAL FUNCTIONS - FIXED
-// ============================================
-
 // Initialize Google-style tab switching
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.google-tab').forEach(tab => {
@@ -659,6 +641,47 @@ function copyToClipboard(type) {
             toast.remove();
         }, 2000);
     });
+}
+
+// Function to apply blur to modal services
+function applyModalServiceBlur(shouldBlur) {
+    console.log('applyModalServiceBlur called with shouldBlur:', shouldBlur);
+    
+    // Blur the header/cover image
+    const headerCover = document.getElementById('modalCoverImage');
+    console.log('headerCover element:', headerCover);
+    if (headerCover) {
+        if (shouldBlur) {
+            headerCover.classList.add('service-blurred');
+            console.log('Added blur to header');
+        } else {
+            headerCover.classList.remove('service-blurred');
+        }
+    }
+    
+    // Blur menu content (which contains both menu and websites)
+    const menuContent = document.getElementById('detailMenuContent');
+    console.log('menuContent element:', menuContent);
+    if (menuContent) {
+        if (shouldBlur) {
+            menuContent.classList.add('service-blurred');
+            console.log('Added blur to menuContent');
+        } else {
+            menuContent.classList.remove('service-blurred');
+        }
+    }
+    
+    // Blur photos/highlights
+    const photosGallery = document.getElementById('detailPhotos');
+    console.log('photosGallery element:', photosGallery);
+    if (photosGallery) {
+        if (shouldBlur) {
+            photosGallery.classList.add('service-blurred');
+            console.log('Added blur to photosGallery');
+        } else {
+            photosGallery.classList.remove('service-blurred');
+        }
+    }
 }
 
 // Update viewLocationDetails function with proper image and website handling
@@ -732,6 +755,11 @@ if (descriptionEl) {
     
     // Load services content (photos, menu, websites)
     loadServicesContent(location);
+    
+    // Apply blur to services if blur_services = 1
+    console.log('Location object:', location);
+    console.log('blur_services value:', location.blur_services);
+    applyModalServiceBlur(location.blur_services == 1);
     
     // Show modal
     modal.style.display = 'block';
@@ -932,6 +960,18 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// SERVICES TAB BLUR TOGGLE - FIXED VERSION
+document.addEventListener("DOMContentLoaded", function() {
+  const blurToggle = document.getElementById("modalBlurToggle");
+  const modal = document.querySelector(".modal-content.google-style");
+  if (blurToggle && modal) {
+    blurToggle.addEventListener("change", function() {
+      modal.classList.toggle("blurred", this.checked);
+    });
+  }
+});
+    
 
 
 

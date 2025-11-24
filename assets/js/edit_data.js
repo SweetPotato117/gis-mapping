@@ -13,6 +13,13 @@ window.submitUpdateLocation = async function(locationData) {
     formData.append('open_hours', locationData.open_hours);
     formData.append('contact', locationData.contact);
     formData.append('url', locationData.url || '');
+
+    // --- NEW: Capture Blur Setting ---
+    // This grabs the checkbox state and sends it as '1' or '0'
+    const blurToggle = document.getElementById('blurServicesToggle');
+    const isBlurred = blurToggle && blurToggle.checked ? 1 : 0;
+    formData.append('blur_services', isBlurred);
+    // ---------------------------------
     
     // Append menu items
     if (locationData.menu && locationData.menu.length > 0) {
@@ -51,7 +58,6 @@ window.submitUpdateLocation = async function(locationData) {
 };
 
 // Attach UI handler for editing an existing location
-
 function loadEditForm() {
     const btn = document.getElementById('editLocation');
     const placeId = btn.getAttribute('data-location-id');
@@ -62,7 +68,4 @@ function loadEditForm() {
 
     // Redirect to edit form
     window.location.href = `edit_location.php?id=${placeId}`;
-   
 }
-
-
