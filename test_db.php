@@ -1,12 +1,12 @@
 <?php
-require_once __DIR__ . '/models/place_about.php';
+
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
 echo "1. PHP is running...<br>";
 
-require_once 'dbconn.php';
+require_once __DIR__ . '/models/place_about.php';
 
 echo "2. Connected successfully to TiDB!<br>";
 
