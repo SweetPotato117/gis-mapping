@@ -7,6 +7,11 @@ window.submitUpdateLocation = async function(locationData) {
     formData.append('name', locationData.name);
     formData.append('type', locationData.type);
     formData.append('description', locationData.description);
+    const inputs = new FormData(document.getElementById('locationForm'));
+    formData.append('place_about', JSON.stringify({
+        amenities: inputs.getAll('amenities[]'),
+        house_rules: inputs.getAll('house_rules[]')
+    }));
     formData.append('address', locationData.address);
     formData.append('lat', locationData.lat);
     formData.append('lng', locationData.lng);
@@ -17,8 +22,8 @@ window.submitUpdateLocation = async function(locationData) {
     // --- NEW: Capture Blur Setting ---
     // This grabs the checkbox state and sends it as '1' or '0'
     const blurToggle = document.getElementById('blurServicesToggle');
-    const isBlurred = blurToggle && blurToggle.checked ? 1 : 0;
-    formData.append('blur_services', isBlurred);
+    if (blurToggle) formData.append('blur_services', blurToggle.checked ? 1 : 0);
+    inputs.getAll('removed_highlights[]').forEach(id => formData.append('removed_highlights[]', id));
     // ---------------------------------
     
     // Append menu items
@@ -56,16 +61,3 @@ window.submitUpdateLocation = async function(locationData) {
     const json = await response.json();
     return json;
 };
-
-// Attach UI handler for editing an existing location
-function loadEditForm() {
-    const btn = document.getElementById('editLocation');
-    const placeId = btn.getAttribute('data-location-id');
-    if (!placeId) {
-        console.error('No place ID found for editing');
-        return;
-    }
-
-    // Redirect to edit form
-    window.location.href = `edit_location.php?id=${placeId}`;
-}

@@ -1,173 +1,88 @@
 <?php
-// Prevent any output before JSON
-ob_start();
-
-// Start session and include required files
 session_start();
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
-// Capture errors
-set_error_handler(function($errno, $errstr, $errfile, $errline) {
-    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
-});
-
-try {
-    require_once '../../models/functions.php';
-} catch (Exception $e) {
-    ob_end_clean();
-    header('Content-Type: application/json');
-    echo json_encode([
-        'success' => false, 
-        'message' => 'File include error: ' . $e->getMessage(),
-        'file' => $e->getFile(),
-        'line' => $e->getLine()
-    ]);
-    exit();
+function accountReply(int $status, string $message): never
+{
+    http_response_code($status);
+    echo json_encode(['success' => $status < 400, 'message' => $message]);
+    exit;
 }
 
-// Clear any output buffer and set JSON header
-ob_end_clean();
-header('Content-Type: application/json');
-
-// Check if admin is logged in
-if (!isset($_SESSION['admin_id'])) {
-    echo json_encode([
-        'success' => false, 
-        'message' => 'Unauthorized access. Please login first.',
-        'debug' => 'Session admin_id not set'
-    ]);
-    exit();
-}
-
-// Check if request method is POST
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    echo json_encode([
-        'success' => false, 
-        'message' => 'Invalid request method.',
-        'debug' => 'Method: ' . $_SERVER['REQUEST_METHOD']
-    ]);
-    exit();
+    header('Allow: POST');
+    accountReply(405, 'Submit the account form to make changes.');
+}
+if (!isset($_SESSION['admin_id']) || ($_SESSION['admin_role'] ?? '') !== 'superadmin') {
+    accountReply(403, 'Super admin access is required.');
+}
+if (isset($_SESSION['last_activity']) && time() - $_SESSION['last_activity'] > 7200) {
+    accountReply(401, 'Your session expired. Sign in again.');
+}
+if (!isset($_SESSION['account_manager_token']) ||
+    !is_string($_POST['csrf_token'] ?? null) ||
+    !hash_equals($_SESSION['account_manager_token'], $_POST['csrf_token'])) {
+    accountReply(403, 'Reload the account manager and try again.');
+}
+
+require_once __DIR__ . '/../../models/functions.php';
+
+$action = $_POST['action'] ?? '';
+$role = $_POST['role'] ?? '';
+$id = filter_var($_POST['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+if (!in_array($action, ['create', 'update', 'delete'], true) ||
+    !in_array($role, ['admin', 'superadmin'], true)) {
+    accountReply(400, 'Choose a valid account action.');
+}
+if ($action !== 'create' && ($role !== 'admin' || !$id)) {
+    accountReply(403, 'Only store admin accounts can be changed here.');
 }
 
 try {
-    // Get and sanitize input data
-    $username = isset($_POST['username']) ? trim($_POST['username']) : '';
-    $email = isset($_POST['email']) ? trim($_POST['email']) : '';
-    $password = isset($_POST['password']) ? $_POST['password'] : '';
-    $phone = isset($_POST['phone']) ? trim($_POST['phone']) : '';
-    $role = isset($_POST['role']) ? trim($_POST['role']) : 'admin';
-
-    // Basic server-side validation
-    if ($username === '' || $email === '' || $password === '') {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Username, email and password are required.',
-            'debug' => [
-                'username' => $username,
-                'email' => $email,
-                'password_length' => strlen($password)
-            ]
-        ]);
-        exit();
+    if ($action !== 'create') {
+        $account = getRecord('admin', "id = $id AND role = 'admin'");
+        if (!$account) accountReply(404, 'Store admin account not found.');
     }
 
-    // Sanitize inputs
-    $username = filter_var($username, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-    $email = filter_var($email, FILTER_SANITIZE_EMAIL);
-    $phone = $phone !== '' ? filter_var($phone, FILTER_SANITIZE_NUMBER_INT) : '';
-    $role = filter_var($role, FILTER_SANITIZE_FULL_SPECIAL_CHARS);
-
-    // Validate email format
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Invalid email address.',
-            'debug' => 'Email provided: ' . $email
-        ]);
-        exit();
+    if ($action === 'delete') {
+        if (!deleteRecord('admin', "id = $id AND role = 'admin'")) {
+            accountReply(500, 'Could not delete the account.');
+        }
+        accountReply(200, 'Store admin account deleted.');
     }
 
-    // Validate password length
-    if (strlen($password) < 8) {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Password must be at least 8 characters long.',
-            'debug' => 'Password length: ' . strlen($password)
-        ]);
-        exit();
+    $username = trim((string)($_POST['username'] ?? ''));
+    $email = trim((string)($_POST['email'] ?? ''));
+    $phone = trim((string)($_POST['phone'] ?? ''));
+    $password = (string)($_POST['password'] ?? '');
+    if ($username === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        accountReply(422, 'Enter a username and a valid email address.');
+    }
+    if (($action === 'create' || $password !== '') && strlen($password) < 8) {
+        accountReply(422, 'Use a password with at least 8 characters.');
     }
 
-    // Check database connection
-    if (!isset($conn) || !$conn) {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Database connection error.',
-            'debug' => 'Connection variable not set or invalid'
-        ]);
-        exit();
+    $otherId = $action === 'update' ? $id : 0;
+    $duplicate = $conn->prepare('SELECT username = ? AS same_username FROM admin WHERE id <> ? AND (username = ? OR email = ?) ORDER BY same_username DESC LIMIT 1');
+    $duplicate->bind_param('siss', $username, $otherId, $username, $email);
+    $duplicate->execute();
+    $match = $duplicate->get_result()->fetch_assoc();
+    if ($match) {
+        accountReply(409, $match['same_username'] ? 'That username is already in use.' : 'That email address is already in use.');
     }
 
-    // Check if username already exists
-    $existingUsername = getAllRecords('admin', "WHERE username = '" . mysqli_real_escape_string($conn, $username) . "'");
-    if (!empty($existingUsername)) {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Username already exists.',
-            'debug' => 'Username: ' . $username
-        ]);
-        exit();
-    }
+    $data = ['username' => $username, 'email' => $email, 'phone' => $phone];
+    if ($password !== '') $data['password'] = password_hash($password, PASSWORD_DEFAULT);
 
-    // Check if email already exists
-    $existingEmail = getAllRecords('admin', "WHERE email = '" . mysqli_real_escape_string($conn, $email) . "'");
-    if (!empty($existingEmail)) {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Email already exists.',
-            'debug' => 'Email: ' . $email
-        ]);
-        exit();
-    }
-
-    // Hash password
-    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-    // Prepare data for insertion
-    $data = [
-        'username' => $username,
-        'email' => $email,
-        'password' => $hashedPassword,
-        'phone' => $phone,
-        'role' => $role
-    ];
-
-    // Insert admin record
-    $insert = insertRecord('admin', $data);
-
-    if ($insert) {
-        echo json_encode([
-            'success' => true, 
-            'message' => 'Admin account created successfully.'
-        ]);
-    } else {
-        echo json_encode([
-            'success' => false, 
-            'message' => 'Failed to create admin account.',
-            'debug' => [
-                'mysql_error' => mysqli_error($conn),
-                'data' => $data
-            ]
-        ]);
-    }
-
-} catch (Exception $e) {
-    echo json_encode([
-        'success' => false, 
-        'message' => 'System Error: ' . $e->getMessage(),
-        'debug' => [
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
-        ]
-    ]);
+    $saved = $action === 'create'
+        ? insertRecord('admin', $data + ['role' => $role])
+        : updateRecord('admin', $data, "id = $id AND role = 'admin'");
+    if (!$saved) accountReply(500, 'Could not save the account.');
+    accountReply(200, $action === 'create' ? 'Account created.' : 'Account updated.');
+} catch (mysqli_sql_exception $error) {
+    if ($error->getCode() === 1062) accountReply(409, 'That username or email address is already in use.');
+    if ($error->getCode() === 1451) accountReply(409, 'This account is linked to other records and could not be deleted.');
+    error_log('[account_manager] ' . $error->getMessage());
+    accountReply(500, 'Could not save the account change.');
 }
-?>

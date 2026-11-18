@@ -21,6 +21,7 @@ try {
     }
     
     require_once '../../models/functions.php';
+    require_once __DIR__ . '/../../models/place_about.php';
     
     // Check database connection
     if (!isset($conn) || !$conn) {
@@ -87,6 +88,7 @@ try {
             'name' => $place['name'] ?? '',
             'type' => $rawType,
             'description' => formatDescription($place['description'] ?? ''),
+            'place_about' => decodePlaceAbout($place['place_about'] ?? null),
             'address' => $place['address'] ?? '',
             'lat' => isset($place['lat']) ? (float)$place['lat'] : 0.0,
             'lng' => isset($place['lng']) ? (float)$place['lng'] : 0.0,

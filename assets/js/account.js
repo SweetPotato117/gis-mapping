@@ -80,10 +80,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (input.type === 'password') {
                 input.type = 'text';
+                this.setAttribute('aria-pressed', 'true');
                 this.classList.remove('fa-eye');
                 this.classList.add('fa-eye-slash');
             } else {
                 input.type = 'password';
+                this.setAttribute('aria-pressed', 'false');
                 this.classList.remove('fa-eye-slash');
                 this.classList.add('fa-eye');
             }
@@ -135,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (profileName) profileName.textContent = usernameInput.value;
                     if (profileEmail) profileEmail.textContent = emailInput.value;
                     if (avatarImage) {
-                        avatarImage.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(usernameInput.value)}&size=150&background=2d7a3e&color=fff`;
+                        avatarImage.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(usernameInput.value)}&size=150&background=096b64&color=fff`;
                     }
                     
                     const metaSpan = document.querySelector('.profile-meta span:last-child');
@@ -253,7 +255,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 if (data.success) {
                     alert(data.message);
-                    window.location.href = 'index.php';
+                    window.location.href = '../admin/index.php';
                 } else {
                     alert('Error: ' + data.message);
                 }

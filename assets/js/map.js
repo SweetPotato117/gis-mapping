@@ -2,6 +2,8 @@
 const map = L.map('map', {
     center: [16.9305, 121.7400],
     zoom: 14,
+    zoomControl: false,
+    touchZoom: true,
     maxBoundsViscosity: 1.0
 });
 
@@ -33,6 +35,7 @@ let markers = [];
 let currentMarker = null;
 let locations = [];
 let currentLocationId = null;
+let pendingSearchPopup;
 
 const iconMap = {
     restaurant: '../assets/icons/restaurant.png',
@@ -42,6 +45,7 @@ const iconMap = {
 };
 
 function getIconForType(type) {
+    if (window.placeMapMarkers) return placeMapMarkers.icon(type);
     const url = iconMap[type] || iconMap.default;
     return L.icon({
         iconUrl: url,
@@ -165,36 +169,36 @@ function saveLocations() {
 
 function addLocationMarker(location, index) {
     const marker = L.marker([parseFloat(location.lat), parseFloat(location.lng)], {
-        icon: getIconForType(location.type)
+        icon: getIconForType(location.type),
+        title: window.placeMapMarkers ? location.name : undefined
     }).addTo(map);
     
-    // Determine label class based on location type
-    let labelClass = 'location-label';
-    if (location.type === 'restaurant') {
-        labelClass += ' restaurant-label';
-    } else if (location.type === 'hotels') {
-        labelClass += ' hotels-label';
-    } else if (location.type === 'tourist_destination') {
-        labelClass += ' tourist-label';
+    if (window.placeMapMarkers) {
+        placeMapMarkers.bindLabel(marker, location.name, location.type);
+    } else {
+        // Determine label class based on location type
+        let labelClass = 'location-label';
+        if (location.type === 'restaurant') {
+            labelClass += ' restaurant-label';
+        } else if (location.type === 'hotels') {
+            labelClass += ' hotels-label';
+        } else if (location.type === 'tourist_destination') {
+            labelClass += ' tourist-label';
+        }
+        // Add permanent tooltip (label) - USE RAW TEXT, NO ESCAPING
+        marker.bindTooltip(location.name, {
+            permanent: true,
+            direction: 'right',
+            className: labelClass,
+            offset: [10, -5]
+        });
     }
-    
-    // Add permanent tooltip (label) - USE RAW TEXT, NO ESCAPING
-    marker.bindTooltip(location.name, {
-        permanent: true,
-        direction: 'right',
-        className: labelClass,
-        offset: [10, -5]
+
+    marker.bindPopup(createPlacePopup(location, index), { maxWidth: 340, className: 'admin-place-popup' });
+    marker.on('popupopen', () => {
+        clearTimeout(pendingSearchPopup);
+        window.openLocationEditor(location.is_owner ? location.id : null, { fromMap: true });
     });
-    
-    // Popup content - USE ESCAPED HTML
-    const popup = `
-        <div class="popup-title">${escapeHtml(location.name)}</div>
-        <div class="popup-info">${formatType(location.type)}</div>
-        <div class="popup-info">${escapeHtml(location.address) || 'No address'}</div>
-        <button class="popup-btn" onclick="viewLocationDetails(${index})">View Details</button>
-    `;
-    
-    marker.bindPopup(popup);
     
     markers[index] = {
         marker: marker,
@@ -202,6 +206,107 @@ function addLocationMarker(location, index) {
         location: location
     };
 }
+
+function getLocationPhotos(location) {
+    return (location.highlights || []).map(photo => photo.imageurl).filter(Boolean);
+}
+
+function createPlacePopup(location, index) {
+    const card = document.createElement('article');
+    card.className = 'admin-place-card';
+    card.innerHTML = `
+        <div class="admin-place-card-body">
+            <span class="admin-place-category"></span>
+            <h3 class="admin-place-name"></h3>
+            <ul class="admin-place-facts"></ul>
+            <button type="button" class="popup-btn">View Details</button>
+        </div>
+    `;
+    card.querySelector('.admin-place-category').textContent = formatType(location.type);
+    card.querySelector('.admin-place-name').textContent = location.name;
+    card.querySelector('.popup-btn').addEventListener('click', () => viewLocationDetails(index));
+
+    const facts = card.querySelector('.admin-place-facts');
+    for (const [icon, label, value] of [
+        ['location-dot', 'Address', location.address],
+        ['clock', 'Hours', location.open_hours],
+        ['phone', 'Phone', location.contact]
+    ]) {
+        if (!value) continue;
+        const fact = document.createElement('li');
+        fact.innerHTML = `<i class="fa-solid fa-${icon}" aria-hidden="true"></i><span></span>`;
+        fact.lastElementChild.textContent = `${label}: ${value}`;
+        facts.append(fact);
+    }
+
+    const photos = getLocationPhotos(location);
+    if (photos.length && Number(location.blur_services) !== 1) {
+        const cover = createPlacePhotoButton(location, photos, 0);
+        cover.classList.add('admin-place-cover');
+        const count = document.createElement('span');
+        count.textContent = photos.length === 1 ? 'View photo' : `View ${photos.length} photos`;
+        cover.append(count);
+        card.prepend(cover);
+    }
+    return card;
+}
+
+function createPlacePhotoButton(location, photos, index) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'admin-place-photo';
+    button.setAttribute('aria-label', `View photo ${index + 1} of ${location.name}`);
+    const image = document.createElement('img');
+    image.src = photos[index];
+    image.alt = '';
+    image.loading = 'lazy';
+    button.append(image);
+    button.addEventListener('click', () => openPlacePhotoViewer(location.name, photos, index));
+    return button;
+}
+
+const placePhotoDialog = document.createElement('dialog');
+placePhotoDialog.className = 'admin-photo-viewer';
+placePhotoDialog.setAttribute('aria-label', 'Place photos');
+placePhotoDialog.innerHTML = `
+    <form method="dialog"><button type="submit" autofocus aria-label="Close photos">×</button></form>
+    <img alt="">
+    <div class="admin-photo-navigation">
+        <button type="button" data-step="-1" aria-label="Previous photo">‹</button>
+        <span aria-live="polite"></span>
+        <button type="button" data-step="1" aria-label="Next photo">›</button>
+    </div>
+`;
+document.body.append(placePhotoDialog);
+
+let showPlacePhoto;
+function openPlacePhotoViewer(name, photos, index) {
+    showPlacePhoto = step => {
+        index = (index + step + photos.length) % photos.length;
+        const image = placePhotoDialog.querySelector('img');
+        image.src = photos[index];
+        image.alt = `${name}, photo ${index + 1}`;
+        placePhotoDialog.querySelector('.admin-photo-navigation span').textContent = `${index + 1} / ${photos.length}`;
+    };
+    showPlacePhoto(0);
+    for (const button of placePhotoDialog.querySelectorAll('[data-step]')) {
+        button.hidden = photos.length === 1;
+    }
+    placePhotoDialog.showModal();
+}
+
+placePhotoDialog.querySelectorAll('[data-step]').forEach(button => {
+    button.addEventListener('click', () => showPlacePhoto(Number(button.dataset.step)));
+});
+placePhotoDialog.addEventListener('keydown', event => {
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+        event.preventDefault();
+        showPlacePhoto(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+});
+placePhotoDialog.addEventListener('click', event => {
+    if (event.target === placePhotoDialog) placePhotoDialog.close();
+});
 
 function escapeHtml(text) {
     if (!text) return '';
@@ -371,7 +476,8 @@ if (searchInput) {
 
 // Navigate to location with animation
 function navigateToLocation(location) {
-    const markerObj = markers.find(m => m.location.id === location.id);
+    clearTimeout(pendingSearchPopup);
+    const markerObj = markers.find(m => String(m.location.id) === String(location.id));
     
     if (markerObj && markerObj.marker) {
         map.flyTo([location.lat, location.lng], 17, {
@@ -379,7 +485,7 @@ function navigateToLocation(location) {
             easeLinearity: 0.25
         });
         
-        setTimeout(() => {
+        pendingSearchPopup = setTimeout(() => {
             markerObj.marker.openPopup();
         }, 1500);
     }
@@ -418,11 +524,15 @@ loadLocations();
 // Tab switching
 document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
     const targetTab = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        if (b.hasAttribute('aria-pressed')) b.setAttribute('aria-pressed', String(b === btn));
+    });
     btn.classList.add('active');
     document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
     const pane = document.getElementById(targetTab);
     if (pane) pane.classList.add('active');
+    if (document.body.classList.contains('map-admin')) pane?.closest('.tab-content').scrollTo(0, 0);
 }));
 
 // Location type change handler
@@ -499,6 +609,19 @@ window.GIS = {
     getCurrentMarker: () => currentMarker,
     setCurrentMarker: (m) => { currentMarker = m; },
     addLocationMarker: addLocationMarker,
+    updateEditedLocation(place) {
+        const index = locations.findIndex(location => location.id === place.id);
+        if (index < 0) return;
+        if (markers[index]) map.removeLayer(markers[index].marker);
+        const location = {
+            ...locations[index],
+            ...place,
+            highlights: place.highlights.map(photo => ({ imageurl: photo.image_url }))
+        };
+        locations[index] = location;
+        addLocationMarker(location, index);
+        applyViewFilter();
+    },
     clearForm: typeof clearForm !== 'undefined' ? clearForm : null
 };
 
@@ -515,6 +638,7 @@ function initializeViewAllToggle() {
         toggleBtn.addEventListener('click', function() {
             viewAllActive = !viewAllActive;
             this.classList.toggle('active', viewAllActive);
+            this.setAttribute('aria-pressed', String(viewAllActive));
             
             // Update button text and icon
             const textNode = this.childNodes[this.childNodes.length - 1];
@@ -783,18 +907,24 @@ function loadServicesContent(location) {
     let hasContent = false;
     
     // Load menu if available
-    if (location.menu && location.menu.length > 0) {
+    if (location.type === 'restaurant' && location.menu?.length) {
         hasContent = true;
-        let menuHTML = '<h4>MENU</h4>';
-        location.menu.forEach(item => {
-            menuHTML += `
-                <div class="menu-item-display">
-                    <span class="menu-item-name">${item.name || 'Item'}</span>
-                    <span class="menu-item-price">₱${parseFloat(item.price || 0).toFixed(2)}</span>
-                </div>
-            `;
-        });
-        menuContent.innerHTML = menuHTML;
+        const heading = document.createElement('h4');
+        heading.className = 'admin-menu-heading';
+        heading.innerHTML = '<i class="fa-solid fa-utensils" aria-hidden="true"></i> Menu';
+        const list = document.createElement('ul');
+        list.className = 'admin-menu-grid';
+        for (const item of location.menu) {
+            const row = document.createElement('li');
+            row.className = 'menu-item-display';
+            row.innerHTML = '<div><div class="menu-item-name"></div><div class="menu-item-type"></div></div><span class="menu-item-price"></span>';
+            row.querySelector('.menu-item-name').textContent = item.name || 'Item';
+            row.querySelector('.menu-item-type').textContent = item.type || 'Food';
+            const price = Number.parseFloat(item.price);
+            row.querySelector('.menu-item-price').textContent = Number.isFinite(price) ? `₱${price.toFixed(2)}` : '—';
+            list.append(row);
+        }
+        menuContent.append(heading, list);
     }
     
     // Load websites if available
@@ -816,71 +946,17 @@ function loadServicesContent(location) {
         });
         websiteHTML += '</div>';
         
-        if (menuContent.innerHTML) {
-            menuContent.innerHTML += '<div style="margin: 20px 0;"></div>' + websiteHTML;
-        } else {
-            menuContent.innerHTML = websiteHTML;
-        }
+        menuContent.insertAdjacentHTML('beforeend', websiteHTML);
     }
     
-// Load images from highlights array with better error handling
-if (location.highlights && location.highlights.length > 0) {
-    hasContent = true;
-    console.log('Loading highlights:', location.highlights); // Debug
-    
-    location.highlights.forEach((highlight, index) => {
-        if (highlight.imageurl) {  // <-- This is correct now
-            const imgElement = document.createElement('img');
-            imgElement.src = highlight.imageurl;  // <-- Access the imageurl property
-            imgElement.alt = `${location.name} - Photo ${index + 1}`;
-            
-            // Add loading indicator
-            imgElement.style.opacity = '0';
-            imgElement.style.transition = 'opacity 0.3s ease';
-            
-            imgElement.onload = function() {
-                console.log('Image loaded successfully:', highlight.imageurl);
-                this.style.opacity = '1';
-            };
-            
-            imgElement.onerror = function() {
-                console.error('Failed to load image:', highlight.imageurl);
-                
-                // Try alternative paths
-                const originalSrc = highlight.imageurl;
-                const alternatives = [
-                    originalSrc,
-                    originalSrc.replace('../uploads/', '../../uploads/'),
-                    originalSrc.replace('../uploads/', 'uploads/'),
-                    '../' + originalSrc,
-                    '../../uploads/' + originalSrc.split('/').pop(),
-                    '../uploads/highlights/' + originalSrc.split('/').pop()
-                ];
-                
-                let tried = 1;
-                const tryNext = () => {
-                    if (tried < alternatives.length) {
-                        console.log(`Trying alternative path ${tried}:`, alternatives[tried]);
-                        imgElement.src = alternatives[tried];
-                        tried++;
-                    } else {
-                        // Show placeholder if all attempts fail
-                        this.src = 'https://via.placeholder.com/300x200/cccccc/666666?text=Image+Not+Found';
-                        this.style.opacity = '0.5';
-                        console.error('All image load attempts failed for:', originalSrc);
-                    }
-                };
-                
-                imgElement.onerror = tryNext;
-                tryNext();
-            };
-            
-            photosGrid.appendChild(imgElement);
+    const photos = getLocationPhotos(location);
+    if (photos.length && Number(location.blur_services) !== 1) {
+        hasContent = true;
+        for (let index = 0; index < photos.length; index++) {
+            photosGrid.append(createPlacePhotoButton(location, photos, index));
         }
-    });
-}
+    }
 
-    
     // Show message if no content
     if (!hasContent) {
         menuContent.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No additional information available.</p>';
@@ -911,15 +987,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            console.log('Editing location with ID:', placeId);
-            
-            // Check if loadEditForm function exists
-            if (typeof loadEditForm === 'function') {
-                loadEditForm();
-            } else {
-                // Direct redirect to edit page
-                window.location.href = `edit_location.php?id=${placeId}`;
-            }
+            window.openLocationEditor(placeId);
         });
     }
     

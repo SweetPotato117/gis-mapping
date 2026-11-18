@@ -1,0 +1,49 @@
+/* Public map places and their labels */
+.place-map-kind--default            { --place-marker: #39736d; --place-label: #244e4a; }
+.place-map-kind--restaurant         { --place-marker: #a05b37; --place-label: #763c20; }
+.place-map-kind--hotels             { --place-marker: #466b89; --place-label: #2c506d; }
+.place-map-kind--touristdestination { --place-marker: #51785b; --place-label: #315741; }
+.place-map-kind--cafe               { --place-marker: #896341; --place-label: #63472f; }
+.place-map-kind--malls              { --place-marker: #796083; --place-label: #584060; }
+
+.place-map-marker {
+    display: grid;
+    place-items: center;
+}
+
+.place-map-glyph {
+    display: grid;
+    place-items: center;
+    width: 24px;
+    height: 24px;
+    border: 1.5px solid white;
+    border-radius: 50%;
+    background: var(--place-marker);
+    color: white;
+    box-shadow: 0 1px 3px rgb(24 43 50 / 30%);
+    font-size: 11px;
+}
+
+.place-map-marker:hover .place-map-glyph,
+.place-map-marker:focus-visible .place-map-glyph {
+    box-shadow: 0 0 0 2px var(--place-marker), 0 2px 5px rgb(24 43 50 / 32%);
+}
+
+.leaflet-tooltip.location-label {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+    margin-left: 0;
+    padding: 0 2px;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--place-label);
+    font: 650 12px/1.45 system-ui, sans-serif;
+    -webkit-text-stroke: 2.5px rgb(255 255 255 / 96%);
+    paint-order: stroke fill;
+    text-shadow: 0 1px 2px white;
+    pointer-events: none;
+}
+
+.leaflet-tooltip.location-label::before { display: none; }

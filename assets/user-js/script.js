@@ -155,19 +155,10 @@ document.getElementById('saveLocation')?.addEventListener('click', async () => {
                 locationData.highlights = existingHighlights.concat(locationData.highlights || []);
                 locations[index] = locationData;
 
-                // Refresh marker
                 if (markers[index]) {
-                    try { map.removeLayer(markers[index]); } catch (e) {}
+                    map.removeLayer(markers[index].marker);
                 }
-                const marker = L.marker([locationData.lat, locationData.lng], { icon: getIconForType(locationData.type) }).addTo(map);
-                const popup = `
-                    <div class="popup-title">${locationData.name}</div>
-                    <div class="popup-info">${formatType(locationData.type)}</div>
-                    <div class="popup-info">${locationData.address || 'No address'}</div>
-                    <button class="popup-btn" onclick="viewLocationDetails(${index})">View Details</button>
-                `;
-                marker.bindPopup(popup);
-                markers[index] = marker;
+                addLocationMarker(locationData, index);
             }
 
             alert(json.message || 'Location updated successfully!');
@@ -290,81 +281,7 @@ const modal = document.getElementById('locationModal');
 const closeBtn = document.querySelector('.close');
 if (closeBtn) closeBtn.onclick = () => modal.style.display = 'none';
 window.onclick = (e) => {
-    if (e.target === modal) modal.style.display = 'none';
-};
-
-// View location details
-window.viewLocationDetails = function (index) {
-    const location = locations[index];
-    if (!location) return;
-    currentLocationId = index;
-
-    document.getElementById('modalTitle').textContent = location.name;
-    document.getElementById('detailType').textContent = formatType(location.type);
-    document.getElementById('detailCoords').textContent = `${location.lat}, ${location.lng}`;
-    document.getElementById('detailAddress').textContent = location.address || 'Not specified';
-    document.getElementById('detailHours').textContent = location.open_hours || 'Not specified';
-    document.getElementById('detailContact').textContent = location.contact || 'Not specified';
-  
-    
-    // Render websites
-    const websitesEl = document.getElementById('detailWebsites');
-    if (websitesEl) {
-        websitesEl.innerHTML = '';
-        const sites = (location.hotel_websites && location.hotel_websites.length > 0)
-            ? location.hotel_websites
-            : (location.url ? [location.url] : []);
-        if (sites.length === 0) {
-            websitesEl.textContent = 'Not specified';
-        } else {
-            const ul = document.createElement('ul');
-            sites.forEach(s => {
-                const li = document.createElement('li');
-                const a = document.createElement('a');
-                a.href = s;
-                a.target = '_blank';
-                a.textContent = s;
-                li.appendChild(a);
-                ul.appendChild(li);
-            });
-            websitesEl.appendChild(ul);
-        }
-    }
-    
-    document.getElementById('detailDescription').textContent = location.description || 'No description available';
-
-    // Display menu (restaurants only)
-    const menuContent = document.getElementById('detailMenuContent');
-    if (menuContent) {
-        if (location.menu && location.menu.length > 0) {
-            let html = '<h4>Menu</h4><table class="menu-table"><thead><tr><th>Item</th><th>Price</th></tr></thead><tbody>';
-            location.menu.forEach(item => {
-                html += `<tr><td>${item.name}</td><td>₱${parseFloat(item.price).toFixed(2)}</td></tr>`;
-            });
-            html += '</tbody></table>';
-            menuContent.innerHTML = html;
-        } else {
-            menuContent.innerHTML = '';
-        }
-    }
-
-    // Display highlights
-    const photosGallery = document.getElementById('detailPhotos');
-    if (photosGallery) {
-        if (location.highlights && location.highlights.length > 0) {
-            photosGallery.innerHTML = '<h4>Highlights</h4>';
-            location.highlights.forEach(img => {
-                const imgEl = document.createElement('img');
-                imgEl.src = img.image_url;
-                imgEl.alt = 'Highlight';
-                photosGallery.appendChild(imgEl);
-            });
-        } else {
-            photosGallery.innerHTML = '';
-        }
-    }
-
-    if (modal) modal.style.display = 'block';
+    if (e.target === modal) closeLocationModal();
 };
 
 // Image Preview Handler for ALL file inputs

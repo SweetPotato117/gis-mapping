@@ -2,18 +2,33 @@
 const map = L.map('map', {
     center: [16.9305, 121.7400],
     zoom: 14,
+    zoomControl: false,
+    touchZoom: true,
     maxBoundsViscosity: 1.0
 });
 
-const cauayanBounds = L.latLngBounds(
-    [16.85, 121.68],
-    [17.01, 121.85]
-);
+const streetTiles = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap contributors</a>',
+    className: 'public-street-tiles',
+    noWrap: true
+});
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors',
+const satelliteTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+    attribution: 'Imagery: <a href="https://www.arcgis.com/home/item.html?id=10df2279f9684e4a9f6a7f08febac2a9">Esri</a>, Vantor, Earthstar Geographics, and the GIS User Community',
+    maxNativeZoom: 19,
+    maxZoom: 19,
     noWrap: true
 }).addTo(map);
+
+const satelliteToggle = document.getElementById('satelliteToggle');
+satelliteToggle.addEventListener('click', () => {
+    const showSatellite = !map.hasLayer(satelliteTiles);
+    const nextLayer = showSatellite ? satelliteTiles : streetTiles;
+    const previousLayer = showSatellite ? streetTiles : satelliteTiles;
+    nextLayer.addTo(map);
+    map.removeLayer(previousLayer);
+    satelliteToggle.setAttribute('aria-pressed', String(showSatellite));
+});
 
 console.log('Cauayan City boundary loaded from local data');
 
@@ -21,42 +36,29 @@ let markers = [];
 let currentMarker = null;
 let locations = [];
 let currentLocationId = null;
+let finishPlaceSelection = null;
 
 // Live tracking variables
 let userLocationMarker = null;
-let userAccuracyCircle = null;
 let watchPositionId = null;
 let isTrackingLocation = false;
 let userCurrentPosition = null;
-let routingControl = null;
+let navigationDestination = null;
+let navigationRouteLayer = null;
+let navigationRouteRequest = null;
+let navigationRequestTimer = null;
+let lastRouteRequestTime = -Infinity;
+let lastRouteOrigin = null;
+let navigationMode = 'drive';
 let isNavigating = false;
-let navigationUpdateInterval = null;
-
-const iconMap = {
-  restaurant: 'assets/icons/restaurant.png',
-  hotels: 'assets/icons/hotels.png',
-  touristdestination: 'assets/icons/tourist.png',
-  default: 'assets/icons/marker.png'
+let pendingDestination = null;
+const routeProfiles = {
+    drive: { server: 'car', profile: 'driving', minimumMovement: 55 },
+    walk: { server: 'foot', profile: 'foot', minimumMovement: 25 }
 };
+const routingCredit = '<a href="https://routing.openstreetmap.de/about.html">FOSSGIS routing</a> · © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · <a href="https://www.openstreetmap.org/fixthemap">Fix the map</a>';
 
-
-function getIconForType(type) {
-  let key = type;
-  if (typeof key === 'string') key = key.replace(/[-_\s]/g, '').toLowerCase();
-  // Normalize 'tourist', 'tourist-destination', etc. to 'touristdestination'
-  if (key === 'tourist' || key === 'touristdestination' || key === 'touristdest') key = 'touristdestination';
-  if (key === 'hotel') key = 'hotels';
-  if (key === 'restaurant') key = 'restaurant';
-  const url = iconMap[key] || iconMap.default;
-  return L.icon({
-    iconUrl: url,
-    iconSize: [40, 40],
-    iconAnchor: [15, 40],
-    popupAnchor: [0, -38],
-    shadowSize: [41, 41]
-  });
-}
-
+const getIconForType = placeMapMarkers.icon;
 
 function formatType(type) {
     const typeMap = {
@@ -70,97 +72,24 @@ function formatType(type) {
     return typeMap[type] || type;
 }
 
-// User location marker using standard red marker icon
-const userLocationIcon = L.icon({
-    iconUrl: 'focus.png',
-    iconSize: [25, 25],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34]
+const userLocationIcon = L.divIcon({
+    className: 'public-location-dot',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -12]
 });
 
-// Marker management with Google Maps style popup (with image header)
+// Public map location markers
 function addLocationMarker(location, index) {
     const marker = L.marker([parseFloat(location.lat), parseFloat(location.lng)], {
-        icon: getIconForType(location.type)
+        icon: getIconForType(location.type),
+        title: location.name
     }).addTo(map);
 
-    // Determine label class based on location type
-    let labelClass = 'location-label';
-    if (location.type === 'restaurant') {
-        labelClass = 'location-label restaurant-label';
-    } else if (location.type === 'hotels') {
-        labelClass = 'location-label hotels-label';
-    } else if (location.type === 'touristdestination') {
-        labelClass = 'location-label tourist-label';
-    }
+    placeMapMarkers.bindLabel(marker, location.name, location.type);
 
-    // Add permanent tooltip label beside the marker
-    marker.bindTooltip(location.name, {
-        permanent: true,
-        direction: 'right',
-        className: labelClass,
-        offset: [10, -5]
-    });
-
-    // Get hero image - EXACT SAME LOGIC AS viewLocationDetails
-    let heroImageStyle = '';
-    if (location.highlights && location.highlights.length > 0 && location.highlights[0].image_url) {
-        heroImageStyle = `background-image: url(${location.highlights[0].image_url});`;
-    } else {
-        // Use green gradient as fallback
-        heroImageStyle = 'background: linear-gradient(135deg, #2d7a3e 0%, #1f5b2d 100%);';
-    }
-
-    // Create Google Maps style popup with SAME header structure as modal
-    const popup = `
-        <div class="google-popup">
-            <div class="modal-hero-image" style="${heroImageStyle}"></div>
-            <div class="popup-content">
-                <div class="popup-header">
-                    <h3 class="popup-title">${location.name}</h3>
-                    <p class="popup-category">${formatType(location.type)}</p>
-                </div>
-                <div class="popup-address">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <span>${location.address || 'No address'}</span>
-                </div>
-                <div class="popup-actions">
-                    <button class="popup-btn-secondary" onclick="viewLocationDetails(${index})">
-                        <i class="fas fa-info-circle"></i>
-                        View Details
-                    </button>
-                    <button class="popup-btn-primary" onclick="startNavigation(${location.lat}, ${location.lng}, '${escapeHtml(location.name)}')">
-                        <i class="fas fa-directions"></i>
-                        Directions
-                    </button>
-                </div>
-            </div>
-        </div>
-    `;
-
-    marker.bindPopup(popup, {
-        maxWidth: 300,
-        className: 'google-style-popup'
-    });
-
-    markers[index] = {
-        marker: marker,
-        type: location.type,
-        location: location
-    };
-}
-
-// Helper function to get icon for popup placeholder
-function getIconClassForPopup(type) {
-    const icons = {
-        'restaurant': 'fa-utensils',
-        'hotels': 'fa-hotel',
-        'touristdestination': 'fa-camera',
-        'cafe': 'fa-coffee',
-        'carinderia': 'fa-hamburger',
-        'malls': 'fa-shopping-bag'
-    };
-    return icons[type] || 'fa-map-marker-alt';
+    markers[index] = { marker, type: location.type, location };
+    marker.on('click', () => navigateToLocation(location, markers[index]));
 }
 
 async function fetchAndDisplayLocations() {
@@ -209,10 +138,6 @@ async function loadLocations() {
     }
 }
 
-function saveLocations() {
-    return;
-}
-
 function escapeHtml(text) {
     if (!text) return '';
     return text.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -223,14 +148,23 @@ const navPanel = document.createElement('div');
 navPanel.className = 'navigation-panel';
 navPanel.id = 'navigationPanel';
 navPanel.innerHTML = `
+    <button type="button" class="place-sheet-handle" aria-label="Resize directions"></button>
     <div class="nav-panel-header">
-        <h4><i class="fas fa-route"></i> Navigation</h4>
-        <button class="nav-close-btn" onclick="stopNavigation()">
+        <h4><i class="fas fa-route" aria-hidden="true"></i> <span id="navDestination">Directions</span></h4>
+        <button class="nav-close-btn" onclick="stopNavigation()" aria-label="Stop navigation">
             <i class="fas fa-times"></i>
         </button>
     </div>
     <div class="nav-panel-content">
-        <div class="nav-summary">
+        <div class="nav-mode-picker" role="group" aria-label="Travel mode">
+            <button type="button" data-mode="drive" aria-pressed="true"><i class="fa-solid fa-car" aria-hidden="true"></i> Drive</button>
+            <button type="button" data-mode="walk" aria-pressed="false"><i class="fa-solid fa-person-walking" aria-hidden="true"></i> Walk</button>
+        </div>
+        <div class="nav-route-status">
+            <span role="status"></span>
+            <button type="button" class="nav-retry-btn" hidden>Retry</button>
+        </div>
+        <div class="nav-summary" hidden>
             <div class="nav-summary-item">
                 <span class="nav-summary-value" id="navDistance">--</span>
                 <span class="nav-summary-label">Distance</span>
@@ -239,6 +173,9 @@ navPanel.innerHTML = `
                 <span class="nav-summary-value" id="navDuration">--</span>
                 <span class="nav-summary-label">Time</span>
             </div>
+            <button type="button" class="nav-steps-btn" aria-controls="navInstructions" aria-expanded="false">
+                Steps <i class="fas fa-chevron-up" aria-hidden="true"></i>
+            </button>
         </div>
         <div id="navInstructions"></div>
     </div>
@@ -249,6 +186,21 @@ navPanel.innerHTML = `
     </div>
 `;
 document.body.appendChild(navPanel);
+const navStepsButton = navPanel.querySelector('.nav-steps-btn');
+const navModeButtons = navPanel.querySelectorAll('[data-mode]');
+const navRetryButton = navPanel.querySelector('.nav-retry-btn');
+navModeButtons.forEach(button => button.addEventListener('click', () => {
+    if (navigationMode === button.dataset.mode) return;
+    navigationMode = button.dataset.mode;
+    navModeButtons.forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+    clearNavigationRoute();
+    setRouteStatus('Finding route…');
+    requestNavigationRoute();
+}));
+navRetryButton.addEventListener('click', () => {
+    setRouteStatus('Finding route…');
+    requestNavigationRoute();
+});
 
 // Toggle location tracking
 function toggleLocationTracking() {
@@ -262,6 +214,7 @@ function toggleLocationTracking() {
 // Start tracking user location
 function startLocationTracking() {
     if (!navigator.geolocation) {
+        pendingDestination = null;
         alert('Geolocation is not supported by your browser');
         return;
     }
@@ -280,17 +233,11 @@ function startLocationTracking() {
 
     isTrackingLocation = true;
     
-    // FIXED: Only update button if it exists
-    const locationBtn = document.querySelector('.my-location-btn');
-    if (locationBtn) {
-        locationBtn.classList.add('active');
-    }
-    
     console.log('Location tracking started...');
 }
 
 function stopLocationTracking() {
-    if (watchPositionId) {
+    if (watchPositionId !== null) {
         navigator.geolocation.clearWatch(watchPositionId);
         watchPositionId = null;
     }
@@ -301,12 +248,10 @@ function stopLocationTracking() {
     }
 
     isTrackingLocation = false;
+    userCurrentPosition = null;
+    pendingDestination = null;
     
-    // FIXED: Only update button if it exists
-    const locationBtn = document.querySelector('.my-location-btn');
-    if (locationBtn) {
-        locationBtn.classList.remove('active');
-    }
+    document.getElementById('recenterBtn').classList.remove('active');
     
     // FIXED: Only update GPS indicator if it exists
     const gpsIndicator = document.getElementById('gpsIndicator');
@@ -326,6 +271,7 @@ function stopLocationTracking() {
 // Handle location updates WITHOUT accuracy circle
 function onLocationUpdate(position) {
     userCurrentPosition = position;
+    document.getElementById('recenterBtn').classList.add('active');
     const lat = position.coords.latitude;
     const lng = position.coords.longitude;
     const accuracy = position.coords.accuracy;
@@ -336,7 +282,8 @@ function onLocationUpdate(position) {
     updateGPSIndicator(accuracy);
 
     // Update or create user location marker (NO ACCURACY CIRCLE)
-    if (!userLocationMarker) {
+    const firstFix = !userLocationMarker;
+    if (firstFix) {
         userLocationMarker = L.marker([lat, lng], {
             icon: userLocationIcon,
             zIndexOffset: 1000
@@ -349,9 +296,6 @@ function onLocationUpdate(position) {
                 Accuracy: ${accuracy.toFixed(0)} meters
             </div>
         `);
-
-        // Center map on user location (first time)
-        map.setView([lat, lng], 16);
     } else {
         userLocationMarker.setLatLng([lat, lng]);
         userLocationMarker.setPopupContent(`
@@ -362,8 +306,17 @@ function onLocationUpdate(position) {
         `);
     }
 
+    if (pendingDestination) {
+        const { lat, lng, name } = pendingDestination;
+        pendingDestination = null;
+        startNavigation(lat, lng, name);
+        return;
+    }
+
+    if (firstFix) centerMapOnUser();
+
     // Update navigation if active
-    if (isNavigating && routingControl) {
+    if (isNavigating) {
         updateNavigationRoute();
     }
 }
@@ -415,91 +368,111 @@ function updateGPSIndicator(accuracy) {
 }
 // Start navigation to destination
 function startNavigation(destLat, destLng, destName) {
-    // Check if location tracking is active
     if (!isTrackingLocation || !userCurrentPosition) {
-        alert('Please enable location tracking first by clicking the location button.');
-        startLocationTracking();
+        pendingDestination = { lat: destLat, lng: destLng, name: destName };
+        if (!isTrackingLocation) startLocationTracking();
+        if (isTrackingLocation) showToast('Waiting for your location…');
         return;
     }
 
-    const userLat = userCurrentPosition.coords.latitude;
-    const userLng = userCurrentPosition.coords.longitude;
+    if (isNavigating) stopNavigation();
 
-    // Remove existing route
-    if (routingControl) {
-        map.removeControl(routingControl);
-    }
-
-    // Create routing control
-    routingControl = L.Routing.control({
-        waypoints: [
-            L.latLng(userLat, userLng),
-            L.latLng(destLat, destLng)
-        ],
-        routeWhileDragging: false,
-        addWaypoints: false,
-        draggableWaypoints: false,
-        fitSelectedRoutes: false, // CHANGED: Don't auto-fit to prevent map jumping
-        showAlternatives: false,
-        lineOptions: {
-            styles: [{ color: '#4285F4', opacity: 0.8, weight: 6 }]
-        },
-        createMarker: function(i, wp) {
-            if (i === 0) return null; // Don't create marker for start point
-            return L.marker(wp.latLng, {
-                draggable: false,
-                icon: L.icon({
-                    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-                    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-                    iconSize: [25, 41],
-                    iconAnchor: [12, 41],
-                    popupAnchor: [1, -34],
-                    shadowSize: [41, 41]
-                })
-            });
-        },
-        router: L.Routing.osrmv1({
-            serviceUrl: 'https://router.project-osrm.org/route/v1'
-        })
-    }).addTo(map);
-
-    // Listen for route found
-    routingControl.on('routesfound', function(e) {
-        const route = e.routes[0];
-        displayNavigationInfo(route);
-    });
-
+    navigationDestination = L.latLng(destLat, destLng);
     isNavigating = true;
-    document.getElementById('navigationPanel').classList.add('active');
-
-    // Update route every 2 seconds (increased from 1 second for better performance)
-    if (navigationUpdateInterval) {
-        clearInterval(navigationUpdateInterval);
-    }
-    
-    navigationUpdateInterval = setInterval(() => {
-        if (isNavigating && userCurrentPosition) {
-            updateNavigationRoute();
-        }
-    }, 2000);
-
-    console.log('Navigation started to', destName);
+    map.attributionControl.addAttribution(routingCredit);
+    navPanel.querySelector('#navDestination').textContent = destName || 'Directions';
+    setRouteStatus('Finding route…');
+    setNavigationSheetLevel('preview');
+    navPanel.querySelector('.nav-panel-content').scrollTop = 0;
+    navPanel.classList.add('active');
+    centerMapOnUser({ zoomIn: true });
+    requestNavigationRoute();
 }
 
-// Update navigation route with current position
-function updateNavigationRoute() {
-    if (!routingControl || !userCurrentPosition) return;
+function setRouteStatus(message, canRetry = false) {
+    const status = navPanel.querySelector('.nav-route-status');
+    status.hidden = !message;
+    status.querySelector('[role="status"]').textContent = message;
+    navRetryButton.hidden = !canRetry;
+    navPanel.querySelector('.nav-summary').hidden = Boolean(message);
+    if (message) document.getElementById('navInstructions').replaceChildren();
+}
 
-    const userLat = userCurrentPosition.coords.latitude;
-    const userLng = userCurrentPosition.coords.longitude;
+function clearNavigationRoute() {
+    clearTimeout(navigationRequestTimer);
+    navigationRequestTimer = null;
+    const request = navigationRouteRequest;
+    navigationRouteRequest = null;
+    request?.xhr?.abort();
+    if (navigationRouteLayer) map.removeLayer(navigationRouteLayer);
+    navigationRouteLayer = null;
+    lastRouteOrigin = null;
+}
 
-    const waypoints = routingControl.getWaypoints();
-    if (waypoints.length === 2) {
-        routingControl.setWaypoints([
-            L.latLng(userLat, userLng),
-            waypoints[waypoints.length - 1].latLng
-        ]);
+function requestNavigationRoute() {
+    if (!isNavigating || !userCurrentPosition || navigationRouteRequest || navigationRequestTimer !== null) return;
+
+    const wait = 1100 - (performance.now() - lastRouteRequestTime);
+    if (wait > 0) {
+        navigationRequestTimer = setTimeout(() => {
+            navigationRequestTimer = null;
+            requestNavigationRoute();
+        }, wait);
+        return;
     }
+
+    const { latitude, longitude } = userCurrentPosition.coords;
+    const origin = L.latLng(latitude, longitude);
+    const mode = navigationMode;
+    const { server, profile } = routeProfiles[mode];
+    const router = L.Routing.osrmv1({
+        serviceUrl: `https://routing.openstreetmap.de/routed-${server}/route/v1`,
+        profile,
+        useHints: false
+    });
+    const request = {};
+    navigationRouteRequest = request;
+    lastRouteOrigin = origin;
+    lastRouteRequestTime = performance.now();
+
+    request.xhr = router.route([
+        L.Routing.waypoint(origin),
+        L.Routing.waypoint(navigationDestination)
+    ], (error, routes) => {
+        if (navigationRouteRequest !== request) return;
+        navigationRouteRequest = null;
+        const route = routes?.[0];
+        if (error || !route?.coordinates?.length) {
+            if (!navigationRouteLayer) setRouteStatus('Route unavailable.', true);
+            return;
+        }
+        if (route.summary.totalDistance < 20 && origin.distanceTo(navigationDestination) < 30) {
+            arrivedAtDestination();
+            return;
+        }
+
+        if (navigationRouteLayer) map.removeLayer(navigationRouteLayer);
+        navigationRouteLayer = L.layerGroup([
+            L.polyline(route.coordinates, { color: '#fff', opacity: 0.95, weight: 9, interactive: false }),
+            L.polyline(route.coordinates, {
+                color: mode === 'walk' ? '#087b8c' : '#235fc8',
+                dashArray: mode === 'walk' ? '1 10' : null,
+                weight: 5,
+                interactive: false
+            }),
+            L.marker(navigationDestination)
+        ]).addTo(map);
+        displayNavigationInfo(route);
+        setRouteStatus('');
+    }, null, { simplifyGeometry: false });
+}
+
+function updateNavigationRoute() {
+    if (!lastRouteOrigin || performance.now() - lastRouteRequestTime < 12000) return;
+    const { latitude, longitude, accuracy } = userCurrentPosition.coords;
+    const origin = L.latLng(latitude, longitude);
+    const minimumMovement = Math.max(routeProfiles[navigationMode].minimumMovement, accuracy || 0);
+    if (lastRouteOrigin.distanceTo(origin) >= minimumMovement) requestNavigationRoute();
 }
 
 // Display navigation information
@@ -516,8 +489,9 @@ function displayNavigationInfo(route) {
     }
 
     // Format duration
-    const hours = Math.floor(duration / 3600);
-    const minutes = Math.floor((duration % 3600) / 60);
+    const totalMinutes = Math.ceil(duration / 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
     let durationText;
     if (hours > 0) {
         durationText = `${hours}h ${minutes}m`;
@@ -533,37 +507,27 @@ function displayNavigationInfo(route) {
     const instructionsContainer = document.getElementById('navInstructions');
     instructionsContainer.innerHTML = '';
 
-    route.instructions.slice(0, 10).forEach((instruction, index) => {
+    for (const instruction of route.instructions) {
         const instDiv = document.createElement('div');
         instDiv.className = 'nav-instruction';
 
-        let icon = 'fa-arrow-up';
-        if (instruction.type.includes('right')) {
-            icon = 'fa-arrow-right';
-        } else if (instruction.type.includes('left')) {
-            icon = 'fa-arrow-left';
-        } else if (instruction.type.includes('straight')) {
-            icon = 'fa-arrow-up';
-        }
+        const turn = (instruction.modifier || instruction.type || '').toLowerCase();
+        const icon = turn.includes('right') ? 'fa-arrow-right' : turn.includes('left') ? 'fa-arrow-left' : 'fa-arrow-up';
 
         instDiv.innerHTML = `
             <div class="nav-instruction-icon">
-                <i class="fas ${icon}"></i>
+                <i class="fas ${icon}" aria-hidden="true"></i>
             </div>
             <div class="nav-instruction-text">
-                <strong>${instruction.text}</strong>
+                <strong></strong>
                 <span>${instruction.distance >= 1000 ? 
                     `${(instruction.distance / 1000).toFixed(1)} km` : 
                     `${Math.round(instruction.distance)} m`}</span>
             </div>
         `;
+        instDiv.querySelector('strong').textContent = instruction.text;
 
         instructionsContainer.appendChild(instDiv);
-    });
-
-    // Check if arrived
-    if (distance < 20) {
-        arrivedAtDestination();
     }
 }
 
@@ -571,15 +535,9 @@ function displayNavigationInfo(route) {
 function stopNavigation() {
     isNavigating = false;
 
-    if (navigationUpdateInterval) {
-        clearInterval(navigationUpdateInterval);
-        navigationUpdateInterval = null;
-    }
-
-    if (routingControl) {
-        map.removeControl(routingControl);
-        routingControl = null;
-    }
+    clearNavigationRoute();
+    navigationDestination = null;
+    map.attributionControl.removeAttribution(routingCredit);
 
     document.getElementById('navigationPanel').classList.remove('active');
     console.log('Navigation stopped');
@@ -598,6 +556,7 @@ const searchClearBtn = document.getElementById('mapSearchClear');
 let suggestionsList = null;
 let currentFocus = -1;
 let searchTimeout = null;
+let searchController = null;
 
 if (searchInput) {
     const searchContainer = searchInput.closest('.floating-search-bar') || searchInput.parentElement;
@@ -625,6 +584,10 @@ if (searchInput) {
         if (searchTimeout) {
             clearTimeout(searchTimeout);
         }
+        if (searchController) {
+            searchController.abort();
+            searchController = null;
+        }
 
         if (searchTerm.length < 2) {
             closeSuggestions();
@@ -638,7 +601,10 @@ if (searchInput) {
             </div>
         `;
 
-        searchTimeout = setTimeout(() => performSearch(searchTerm), 300);
+        searchTimeout = setTimeout(() => {
+            searchTimeout = null;
+            performSearch(searchTerm);
+        }, 300);
     });
 
     if (searchClearBtn) {
@@ -664,9 +630,7 @@ if (searchInput) {
             addActive(items);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            if (currentFocus > -1 && items[currentFocus]) {
-                items[currentFocus].click();
-            }
+            (items[currentFocus] || items[0])?.click();
         } else if (e.key === 'Escape') {
             closeSuggestions();
         }
@@ -682,16 +646,24 @@ if (searchInput) {
 }
 
 async function performSearch(searchTerm) {
+    const controller = new AbortController();
+    searchController = controller;
+
     try {
-        const response = await fetch(`controllers/user/search_locations.php?term=${encodeURIComponent(searchTerm)}`);
+        const response = await fetch(
+            `controllers/user/search_locations.php?term=${encodeURIComponent(searchTerm)}`,
+            { signal: controller.signal }
+        );
         const data = await response.json();
 
         if (!data.success) {
             throw new Error(data.error || 'Search failed');
         }
 
-        displaySearchResults(data.data, searchTerm);
+        await locationsReady;
+        if (!controller.signal.aborted) displaySearchResults(data.data, searchTerm);
     } catch (error) {
+        if (error.name === 'AbortError') return;
         console.error('Search error:', error);
         suggestionsList.innerHTML = `
             <div class="no-results">
@@ -699,6 +671,10 @@ async function performSearch(searchTerm) {
                 <div class="no-results-text">Error performing search</div>
             </div>
         `;
+    } finally {
+        if (searchController === controller) {
+            searchController = null;
+        }
     }
 }
 
@@ -710,38 +686,38 @@ function displaySearchResults(results, searchTerm) {
         suggestionsList.innerHTML = `
             <div class="no-results">
                 <i class="fas fa-search"></i>
-                <div class="no-results-text">No results found for "${searchTerm}"</div>
+                <div class="no-results-text"></div>
             </div>
         `;
+        suggestionsList.querySelector('.no-results-text').textContent = `No results found for “${searchTerm}”`;
         return;
     }
 
     const header = document.createElement('div');
     header.className = 'search-results-header';
-    header.innerHTML = `<i class="fas fa-info-circle"></i> ${results.length} Results`;
+    const hasTagMatches = results.some(location => location.matched_tags?.length);
+    header.textContent = hasTagMatches ? 'Recommended places' : `${results.length} ${results.length === 1 ? 'result' : 'results'}`;
     suggestionsList.appendChild(header);
 
     results.forEach((location) => {
         const resultItem = document.createElement('div');
         resultItem.className = 'autocomplete-item';
 
-        const nameHighlighted = highlightMatch(location.name, searchTerm);
-        const hasMenuMatch = location.menu_items && location.menu_items.toLowerCase().includes(searchTerm.toLowerCase());
         const iconClass = getIconClass(location.type);
 
         resultItem.innerHTML = `
             <div class="result-item-content">
                 <div class="result-left">
-                    <div class="result-icon ${location.type}">
-                        <i class="${iconClass}"></i>
+                    <div class="result-icon">
+                        <i class="${iconClass}" aria-hidden="true"></i>
                     </div>
                     <div class="result-details">
-                        <div class="result-name">${nameHighlighted}</div>
+                        <div class="result-name"></div>
                         <div class="result-meta">
-                            <span class="result-type">${formatType(location.type)}</span>
-                            ${location.address ? `<span class="result-separator">•</span> <span class="result-address">${location.address}</span>` : ''}
+                            <span class="result-type"></span>
+                            ${location.address ? '<span class="result-separator">•</span> <span class="result-address"></span>' : ''}
                         </div>
-                        ${hasMenuMatch ? `<div class="result-menu-match"><i class="fas fa-utensils"></i> <span>Has <strong>${highlightMatch(location.menu_items.split(',')[0], searchTerm)}</strong></span></div>` : ''}
+                        ${location.matched_menu ? '<div class="result-menu-match"><i class="fas fa-utensils" aria-hidden="true"></i><span>Has <strong></strong></span></div>' : ''}
                     </div>
                 </div>
                 <div class="result-actions">
@@ -751,6 +727,27 @@ function displaySearchResults(results, searchTerm) {
                 </div>
             </div>
         `;
+        appendSearchHighlight(resultItem.querySelector('.result-name'), location.name, searchTerm);
+        resultItem.querySelector('.result-type').textContent = formatType(location.type);
+        if (location.type) resultItem.querySelector('.result-icon').classList.add(location.type);
+        if (location.address) resultItem.querySelector('.result-address').textContent = location.address;
+        if (location.matched_menu) resultItem.querySelector('.result-menu-match strong').textContent = location.matched_menu;
+        if (location.matched_tags?.length) {
+            const tags = document.createElement('div');
+            tags.className = 'result-tags';
+            for (const { label, icon } of location.matched_tags) {
+                const tag = document.createElement('span');
+                tag.className = 'result-tag';
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                const use = document.createElementNS(svg.namespaceURI, 'use');
+                svg.setAttribute('aria-hidden', 'true');
+                use.setAttribute('href', `assets/icons/place-details.svg?v=3#${icon}`);
+                svg.append(use);
+                tag.append(svg, label);
+                tags.append(tag);
+            }
+            resultItem.querySelector('.result-details').append(tags);
+        }
 
         resultItem.addEventListener('click', () => {
             navigateToLocation(location);
@@ -762,27 +759,59 @@ function displaySearchResults(results, searchTerm) {
     });
 }
 
-function navigateToLocation(location) {
-    const markerIndex = markers.findIndex(m => m.location && m.location.id === location.id);
+function cancelPlaceSelection() {
+    if (!finishPlaceSelection) return;
+    map.off('moveend', finishPlaceSelection);
+    finishPlaceSelection = null;
+}
 
-    if (markerIndex !== -1) {
-        const markerObj = markers[markerIndex];
-        // Changed from flyTo to setView for instant navigation without lock
-        map.setView([parseFloat(location.lat), parseFloat(location.lng)], 17);
+map.on('dragstart', cancelPlaceSelection);
 
-        setTimeout(() => {
-            markerObj.marker.openPopup();
-        }, 100); // Reduced from 1600ms
-    } else {
-        map.setView([parseFloat(location.lat), parseFloat(location.lng)], 17);
+function navigateToLocation(location, entry = markers.find(item => String(item?.location.id) === String(location.id))) {
+    cancelPlaceSelection();
+    map.closePopup();
+    map.stop();
+
+    const selectedPlace = entry?.location ?? location;
+    const point = entry?.marker.getLatLng() ?? L.latLng(Number(selectedPlace.lat), Number(selectedPlace.lng));
+    const zoom = Math.min(map.getMaxZoom(), Math.max(18, map.getZoom()));
+    let center = point;
+    const mobile = window.matchMedia('(max-width: 767px)').matches;
+    if (mobile) {
+        // Keep the pin centered in the map area above the preview sheet.
+        const offset = Math.min(222, map.getSize().y * 0.4) / 2;
+        center = map.unproject(map.project(point, zoom).add([0, offset]), zoom);
     }
+
+    const trigger = document.activeElement;
+    const openDetails = () => showLocationDetails(selectedPlace, mobile ? 'preview' : 'half', trigger);
+    if (map.getZoom() === zoom && map.getCenter().equals(center)) {
+        openDetails();
+        return;
+    }
+
+    finishPlaceSelection = () => {
+        cancelPlaceSelection();
+        if (map.getZoom() === zoom && map.project(map.getCenter(), zoom).distanceTo(map.project(center, zoom)) <= 2) {
+            openDetails();
+        }
+    };
+    map.on('moveend', finishPlaceSelection);
+    map.flyTo(center, zoom, { duration: 2 });
 }
 
 
-function highlightMatch(text, searchTerm) {
-    if (!text) return '';
+function appendSearchHighlight(element, text, searchTerm) {
     const regex = new RegExp(`(${escapeRegex(searchTerm)})`, 'gi');
-    return text.replace(regex, '<strong>$1</strong>');
+    (text || '').split(regex).forEach((part, index) => {
+        if (index % 2 === 0) {
+            element.append(part);
+            return;
+        }
+        const match = document.createElement('strong');
+        match.textContent = part;
+        element.append(match);
+    });
 }
 
 function escapeRegex(string) {
@@ -820,13 +849,21 @@ function removeActive(items) {
 }
 
 function closeSuggestions() {
+    if (searchTimeout) {
+        clearTimeout(searchTimeout);
+        searchTimeout = null;
+    }
+    if (searchController) {
+        searchController.abort();
+        searchController = null;
+    }
     if (suggestionsList) {
         suggestionsList.innerHTML = '';
     }
     currentFocus = -1;
 }
 
-loadLocations();
+const locationsReady = loadLocations();
 startLocationTracking(); // Auto-start location tracking on page load
 
 // Tab switching
@@ -873,6 +910,7 @@ document.getElementById('locationType')?.addEventListener('change', (e) => {
 
 // Map click
 map.on('click', async (e) => {
+    cancelPlaceSelection();
     const lat = e.latlng.lat.toFixed(8);
     const lng = e.latlng.lng.toFixed(8);
 
@@ -933,8 +971,6 @@ window.startNavigation = startNavigation;
 window.stopNavigation = stopNavigation;
 
 // Filter functionality
-let activeFilter = 'all';
-
 document.addEventListener('DOMContentLoaded', function() {
     const filterButtons = document.querySelectorAll('.filter-btn');
 
@@ -942,10 +978,12 @@ document.addEventListener('DOMContentLoaded', function() {
         button.addEventListener('click', function() {
             const filter = this.getAttribute('data-filter');
 
-            filterButtons.forEach(btn => btn.classList.remove('active'));
-            this.classList.add('active');
+            filterButtons.forEach(btn => {
+                const selected = btn === this;
+                btn.classList.toggle('active', selected);
+                btn.setAttribute('aria-pressed', String(selected));
+            });
 
-            activeFilter = filter;
             filterMarkers(filter);
         });
     });
@@ -975,18 +1013,16 @@ function filterMarkers(type) {
 }
 
 // Update map container class based on zoom level
+let currentZoomClass = null;
+
 function updateZoomClass() {
     const currentZoom = map.getZoom();
     const mapContainer = map.getContainer();
 
-    // Remove all zoom level classes
-    for (let i = 5; i <= 18; i++) {
-        mapContainer.classList.remove(`zoom-level-${i}`);
-    }
+    if (currentZoomClass) mapContainer.classList.remove(currentZoomClass);
 
-    // Add current zoom level class
-    mapContainer.classList.add(`zoom-level-${currentZoom}`);
-    console.log('Current zoom level:', currentZoom);
+    currentZoomClass = `zoom-level-${currentZoom}`;
+    mapContainer.classList.add(currentZoomClass);
 }
 
 // Initialize zoom class
@@ -1022,6 +1058,11 @@ map.on('zoomend', function() {
 
 // Make switchTab globally accessible
 window.switchTab = function(tabName) {
+    const sheet = document.querySelector('#locationModal .modal-content');
+    if (sheet.dataset.sheetLevel === 'preview' && sheet.getClientRects().length) {
+        setPlaceSheetLevel('half');
+    }
+
     // Update tab buttons
     document.querySelectorAll('.google-tab').forEach(tab => {
         tab.classList.remove('active');
@@ -1042,9 +1083,139 @@ window.switchTab = function(tabName) {
 };
 
 // Make other modal functions globally accessible
+let detailsTrigger = null;
+function setupResizableSheet(placeSheet, label, { scrollContainer = placeSheet, onLevelChange } = {}) {
+    const placeSheetHandle = placeSheet.querySelector('.place-sheet-handle');
+    const placeSheetLevels = ['preview', 'half', 'full'];
+    let placeSheetDrag = null;
+    let ignoreSheetClick = false;
+
+    function setLevel(level) {
+        placeSheet.dataset.sheetLevel = level;
+        placeSheetHandle.setAttribute('aria-label',
+            `Resize ${label}. Current view: ${level}. Use the up and down arrow keys to change the height.`);
+        if (level === 'preview') scrollContainer.scrollTop = 0;
+        onLevelChange?.(level);
+    }
+
+    function movePlaceSheetLevel(direction) {
+        const current = placeSheetLevels.indexOf(placeSheet.dataset.sheetLevel);
+        const next = Math.max(0, Math.min(placeSheetLevels.length - 1, current + direction));
+        setLevel(placeSheetLevels[next]);
+    }
+
+    placeSheetHandle.addEventListener('click', event => {
+        if (ignoreSheetClick && event.detail > 0) return;
+        const current = placeSheetLevels.indexOf(placeSheet.dataset.sheetLevel);
+        setLevel(placeSheetLevels[(current + 1) % placeSheetLevels.length]);
+    });
+
+    placeSheetHandle.addEventListener('keydown', event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        movePlaceSheetLevel(event.key === 'ArrowUp' ? 1 : -1);
+    });
+
+    placeSheetHandle.addEventListener('pointerdown', event => {
+        if (!event.isPrimary || event.button !== 0) return;
+        ignoreSheetClick = false;
+        const viewport = document.documentElement.clientHeight;
+        const style = getComputedStyle(placeSheet);
+        const safeTop = parseFloat(style.getPropertyValue('--safe-top')) || 0;
+        const previewLimit = parseFloat(style.getPropertyValue('--sheet-preview-limit')) || 222;
+        placeSheetDrag = {
+            pointerId: event.pointerId,
+            startY: event.clientY,
+            startHeight: placeSheet.getBoundingClientRect().height,
+            level: placeSheetLevels.indexOf(placeSheet.dataset.sheetLevel),
+            heights: [Math.min(previewLimit, viewport * .4), viewport * .56, Math.min(viewport * .945, viewport - safeTop - 40)]
+        };
+        placeSheetHandle.setPointerCapture(event.pointerId);
+    });
+
+    function dragPlaceSheet(event) {
+        const drag = placeSheetDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        const delta = drag.startY - event.clientY;
+        if (Math.abs(delta) < 6 && !ignoreSheetClick) return;
+        ignoreSheetClick = true;
+        const height = Math.max(drag.heights[0], Math.min(drag.heights[2], drag.startHeight + delta));
+        placeSheet.classList.add('is-resizing');
+        placeSheet.style.setProperty('--place-sheet-drag-size', `${height}px`);
+    }
+
+    function finishPlaceSheetDrag(event) {
+        const drag = placeSheetDrag;
+        if (!drag || drag.pointerId !== event.pointerId) return;
+        placeSheetDrag = null;
+        placeSheet.classList.remove('is-resizing');
+        placeSheet.style.removeProperty('--place-sheet-drag-size');
+        if (event.type !== 'pointerup' || !ignoreSheetClick) return;
+
+        const delta = drag.startY - event.clientY;
+        const height = drag.startHeight + delta;
+        let closest = drag.heights.reduce((best, stop, index) =>
+            Math.abs(height - stop) < Math.abs(height - drag.heights[best]) ? index : best, drag.level);
+        if (closest === drag.level && Math.abs(delta) >= 28) {
+            closest = Math.max(0, Math.min(placeSheetLevels.length - 1, closest + Math.sign(delta)));
+        }
+        setLevel(placeSheetLevels[closest]);
+    }
+
+    placeSheetHandle.addEventListener('pointermove', dragPlaceSheet);
+    placeSheetHandle.addEventListener('pointerup', finishPlaceSheetDrag);
+    placeSheetHandle.addEventListener('pointercancel', finishPlaceSheetDrag);
+    placeSheetHandle.addEventListener('lostpointercapture', finishPlaceSheetDrag);
+
+    return setLevel;
+}
+
+const setPlaceSheetLevel = setupResizableSheet(
+    document.querySelector('#locationModal .modal-content'), 'place details'
+);
+const setNavigationSheetLevel = setupResizableSheet(navPanel, 'directions', {
+    scrollContainer: navPanel.querySelector('.nav-panel-content'),
+    onLevelChange: level => navStepsButton.setAttribute('aria-expanded', String(level !== 'preview'))
+});
+navStepsButton.addEventListener('click', () => {
+    setNavigationSheetLevel(navPanel.dataset.sheetLevel === 'preview' ? 'half' : 'preview');
+});
+
 window.closeLocationModal = function() {
-    document.getElementById('locationModal').style.display = 'none';
+    const modal = document.getElementById('locationModal');
+    if (modal) modal.style.display = 'none';
+
+    // Clean up any blur messages and remove blur class from modal sections
+    const modalContent = document.querySelector('.modal-content.google-style') || document.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.querySelectorAll('.blur-message').forEach(m => m.remove());
+        // remove blur from any elements inside the modal
+        modalContent.querySelectorAll('.service-blurred').forEach(el => el.classList.remove('service-blurred'));
+    }
+    if (detailsTrigger instanceof HTMLElement && detailsTrigger.isConnected) {
+        detailsTrigger.focus({ preventScroll: true });
+    }
+    detailsTrigger = null;
 };
+
+document.getElementById('locationModal').addEventListener('keydown', event => {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        closeLocationModal();
+    }
+    if (event.key !== 'Tab') return;
+    const controls = [...event.currentTarget.querySelectorAll('button, a[href]')]
+        .filter(control => control.getClientRects().length && !control.closest('.service-blurred'));
+    const first = controls[0];
+    const last = controls.at(-1);
+    if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+    }
+});
 
 window.copyAddress = function() {
     const address = document.getElementById('detailAddress').textContent;
@@ -1098,9 +1269,22 @@ window.startNavigationFromModal = function() {
     }
 };
 
-window.openImageViewer = function(imageUrl) {
-    window.open(imageUrl, '_blank');
+const placePhotoViewer = document.getElementById('placePhotoViewer');
+const placeViewerImage = document.getElementById('placeViewerImage');
+
+window.openImageViewer = function(imageUrl, description = 'Place photo') {
+    placeViewerImage.alt = description;
+    placeViewerImage.src = imageUrl;
+    if (!placePhotoViewer.open) placePhotoViewer.showModal();
 };
+
+placePhotoViewer.addEventListener('click', event => {
+    if (event.target === placePhotoViewer) placePhotoViewer.close();
+});
+
+placePhotoViewer.addEventListener('close', () => {
+    if (!placePhotoViewer.open) placeViewerImage.removeAttribute('src');
+});
 
 // Toast notification helper
 function showToast(message) {
@@ -1129,12 +1313,13 @@ function showToast(message) {
     }, 2000);
 }
 
-// Update viewLocationDetails function to populate the new modal
-window.viewLocationDetails = async function(index) {
-    const location = locations[index];
+window.viewLocationDetails = function(index) {
+    showLocationDetails(locations[index]);
+};
 
+function showLocationDetails(location, level = 'half', trigger = document.activeElement) {
     if (!location) {
-        console.error('Location not found:', index);
+        console.error('Location not found');
         return;
     }
 
@@ -1146,7 +1331,7 @@ window.viewLocationDetails = async function(index) {
         heroImage.style.backgroundImage = `url(${location.highlights[0].image_url})`;
     } else {
         // Use green gradient as fallback
-        heroImage.style.backgroundImage = 'linear-gradient(135deg, #2d7a3e 0%, #1f5b2d 100%)';
+        heroImage.style.removeProperty('background-image');
     }
 
     // Set location details
@@ -1156,7 +1341,19 @@ window.viewLocationDetails = async function(index) {
     document.getElementById('detailHours').textContent = location.open_hours || '-';
     document.getElementById('detailContact').textContent = location.contact || '-';
     document.getElementById('detailCoords').textContent = `${location.lat}, ${location.lng}`;
-    document.getElementById('detailDescription').textContent = location.description || 'No information';
+    const aboutPane = document.getElementById('tab-about');
+    let hasAboutOptions = false;
+    for (const section of aboutPane.querySelectorAll('[data-about-group]')) {
+        const selected = location.place_about?.[section.dataset.aboutGroup] ?? [];
+        section.hidden = selected.length === 0;
+        hasAboutOptions ||= !section.hidden;
+        for (const item of section.querySelectorAll('[data-about-option]')) {
+            item.hidden = !selected.includes(item.dataset.aboutOption);
+        }
+    }
+    const description = location.description?.trim();
+    document.getElementById('detailDescription').textContent = description || 'No information';
+    document.getElementById('placeDescriptionSection').hidden = !description && hasAboutOptions;
 
     // Hide sections if empty
     document.getElementById('hoursSection').style.display = location.open_hours ? 'flex' : 'none';
@@ -1190,10 +1387,17 @@ window.viewLocationDetails = async function(index) {
     photosContent.innerHTML = '';
 
     if (location.highlights && location.highlights.length > 0) {
-        location.highlights.forEach(photo => {
-            const photoItem = document.createElement('div');
+        location.highlights.forEach((photo, index) => {
+            const description = `photo ${index + 1} of ${location.name}`;
+            const photoItem = document.createElement('button');
+            photoItem.type = 'button';
             photoItem.className = 'photo-item';
-            photoItem.innerHTML = `<img src="${photo.image_url}" alt="Photo" onclick="openImageViewer('${photo.image_url}')">`;
+            photoItem.setAttribute('aria-label', `View ${description}`);
+            const thumbnail = document.createElement('img');
+            thumbnail.src = photo.image_url;
+            thumbnail.alt = '';
+            photoItem.append(thumbnail);
+            photoItem.addEventListener('click', () => openImageViewer(photo.image_url, description));
             photosContent.appendChild(photoItem);
         });
         document.getElementById('photosSection').style.display = 'block';
@@ -1259,42 +1463,42 @@ window.viewLocationDetails = async function(index) {
     // Switch to overview tab and show modal
     window.switchTab('overview');
     
-    // Apply blur to services if blur_services = 1
-    console.log('Location blur_services:', location.blur_services);
-    
-    // Use setTimeout to ensure DOM is fully rendered before applying blur
-    setTimeout(function() {
-        if (window.applyModalServiceBlur) {
-            window.applyModalServiceBlur(location.blur_services == 1);
-        }
-    }, 50);
-    
-    document.getElementById('locationModal').style.display = 'block';
-};
+    window.onDisplayLocationModal?.(location);
+    detailsTrigger = trigger;
+    const modal = document.getElementById('locationModal');
+    setPlaceSheetLevel(level);
+    modal.style.display = 'block';
+    modal.querySelector('.modal-content').scrollTop = 0;
+    modal.querySelector('.modal-close-btn').focus({ preventScroll: true });
+}
 
-// Recenter map on user's current location
+function centerMapOnUser({ zoomIn = false } = {}) {
+    cancelPlaceSelection();
+    const { latitude, longitude } = userCurrentPosition.coords;
+    const currentZoom = map.getZoom();
+    const targetZoom = zoomIn ? Math.max(18, currentZoom + 1) : Math.max(16, currentZoom);
+    const zoom = Math.min(map.getMaxZoom(), targetZoom);
+    let center = L.latLng(latitude, longitude);
+
+    if (isNavigating && window.matchMedia('(max-width: 767px)').matches) {
+        // Move the camera down so the location sits in the visible part of the map.
+        center = map.unproject(map.project(center, zoom).add([0, navPanel.offsetHeight / 2]), zoom);
+    }
+
+    map.closePopup();
+    map.flyTo(center, zoom, { duration: 2.6 });
+}
+
 function recenterOnUser() {
     if (!userCurrentPosition) {
-        alert('Location tracking not active. Please enable location tracking first.');
         if (!isTrackingLocation) {
             startLocationTracking();
         }
+        if (isTrackingLocation) showToast('Waiting for your location…');
         return;
     }
 
-    const lat = userCurrentPosition.coords.latitude;
-    const lng = userCurrentPosition.coords.longitude;
-    
-    // Smoothly center on user location without locking the map
-    map.setView([lat, lng], 16);
-    
-    // Optional: Show a brief notification
-    if (userLocationMarker) {
-        userLocationMarker.openPopup();
-        setTimeout(() => {
-            userLocationMarker.closePopup();
-        }, 2000);
-    }
+    centerMapOnUser();
 }
 
 // Add event listener for recenter button

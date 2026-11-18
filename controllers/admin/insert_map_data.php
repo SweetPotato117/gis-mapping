@@ -24,6 +24,15 @@ try {
     
     // Prepare place data with proper escaping
     global $conn;
+    $ownerId = (int) $_SESSION['admin_id'];
+    if (($_SESSION['admin_role'] ?? '') === 'superadmin' && isset($_POST['store_admin_id'])) {
+        $selectedOwner = filter_var($_POST['store_admin_id'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!$selectedOwner || !getRecord('admin', "id = $selectedOwner AND role = 'admin'")) {
+            throw new InvalidArgumentException('Select an existing store admin.');
+        }
+        $ownerId = $selectedOwner;
+    }
+
     $placeData = [
         'name' => mysqli_real_escape_string($conn, $_POST['name']),
         'type' => mysqli_real_escape_string($conn, $_POST['type']),
@@ -33,11 +42,13 @@ try {
         'lng' => floatval($_POST['lng']),
         'open_hours' => mysqli_real_escape_string($conn, $_POST['open_hours'] ?? ''),
         'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? ''),
-        'admin_id' => intval($_SESSION['admin_id']),
+        'admin_id' => $ownerId,
         'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : 0
     ];
     
     // Insert place into database
+    require_once __DIR__ . '/../../models/place_about.php';
+    $placeData += placeAboutWriteFields($_POST);
     $placeInserted = insertRecord('places', $placeData);
     if (!$placeInserted) {
         throw new Exception('Failed to insert place data: ' . mysqli_error($conn));

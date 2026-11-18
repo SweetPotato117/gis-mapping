@@ -38,6 +38,8 @@ try {
     ];
 
     // Insert place into database
+    require_once __DIR__ . '/../../models/place_about.php';
+    $placeData += placeAboutWriteFields($_POST);
     $placeInserted = editRecord('places', $placeData, "id = $id");
     
     if (!$placeInserted) {

@@ -1,387 +1,42 @@
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+.account-directory { padding: clamp(18px, 4vw, 40px); }
+.directory-header { margin: 0 auto 22px; max-width: 1200px; }
+.directory-header h1 { margin: 0 0 6px; font-size: clamp(26px, 4vw, 34px); line-height: 1.15; }
+.directory-header p { margin: 0; color: var(--account-muted); }
+.directory-panel { max-width: 1200px; margin: auto; overflow: hidden; border: 1px solid var(--account-line); border-radius: 12px; background: white; }
 
-        :root {
-            --primary-color: #2d7a3e;
-            --primary-dark: #1f5b2d;
-            --secondary-color: #4a90e2;
-            --success-color: #28a745;
-            --danger-color: #dc3545;
-            --dark-bg: #1e1e2d;
-            --panel-bg: #ffffff;
-            --border-color: #e0e0e0;
-            --text-primary: #333;
-            --text-secondary: #666;
-            --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
+.directory-tools { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px 16px; border-bottom: 1px solid var(--account-line); }
+.account-search { display: flex; align-items: center; gap: 8px; width: min(100%, 320px); padding: 0 12px; border: 1px solid var(--account-line); border-radius: 7px; color: var(--account-muted); }
+.account-search:focus-within { outline: 2px solid var(--account-accent); outline-offset: 1px; }
+.account-search input { width: 100%; padding: 9px 0; border: 0; background: transparent; color: var(--account-ink); font: inherit; }
+.account-search input:focus-visible { outline: none; }
+.directory-status { margin: 0; padding: 9px 16px; color: var(--account-muted); font-size: 13px; }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            padding: 20px;
-        }
+.directory-table-wrap { overflow-x: auto; }
+.directory-table { width: 100%; border-collapse: collapse; text-align: left; }
+.directory-table th, .directory-table td { padding: 12px 16px; border-top: 1px solid var(--account-line); overflow-wrap: anywhere; }
+.directory-table thead th { background: #f3f8f6; font-size: 13px; color: var(--account-muted); }
+.directory-table tbody tr:hover { background: #f6faf9; }
+.directory-table th:last-child, .directory-table td:last-child { width: 1%; white-space: nowrap; }
+.account-row-actions { display: flex; gap: 8px; }
+.account-access { display: inline-block; padding: 4px 8px; border-radius: 7px; background: var(--account-tint); color: #07534e; font-size: 13px; }
+.directory-empty { margin: 0; padding: 32px 16px; border-top: 1px solid var(--account-line); text-align: center; color: var(--account-muted); }
 
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-        }
+.account-editor { position: fixed; inset: 0 0 0 auto; width: min(100%, 460px); height: 100%; max-width: 100%; max-height: 100%; margin: 0; padding: 0; border: 0; background: white; color: var(--account-ink); box-shadow: -8px 0 32px #173c4324; }
+.account-editor::backdrop { background: #142b326b; }
+.account-editor form { display: flex; min-height: 100%; flex-direction: column; }
+.account-editor-header, .account-editor-actions { display: flex; align-items: center; gap: 10px; padding: 16px 22px; }
+.account-editor-header { justify-content: space-between; border-bottom: 1px solid var(--account-line); }
+.account-editor-header h2 { margin: 0; font-size: 22px; }
+.account-editor-fields { flex: 1; padding: 18px 22px; }
+.account-editor-fields label { display: block; margin: 15px 0 5px; font-weight: 600; }
+.account-editor-fields label span, #managedPasswordHint { color: var(--account-muted); font-size: 13px; font-weight: 400; }
+.account-editor-fields input:not([type="hidden"]) { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid var(--account-line); border-radius: 7px; color: var(--account-ink); font: inherit; }
+.account-editor-role { margin: 0; color: var(--account-accent); font-weight: 700; }
+.account-editor-role i { margin-right: 5px; }
+.account-editor-actions { position: sticky; bottom: 0; justify-content: flex-end; border-top: 1px solid var(--account-line); background: white; }
+.account-form-error { padding: 10px 12px; border-radius: 7px; background: #fbeef0; color: #922935; }
 
-        .page-header {
-            background: var(--dark-bg);
-            color: white;
-            padding: 24px 32px;
-            border-radius: 12px 12px 0 0;
-            box-shadow: var(--shadow);
-        }
-
-        .page-header h1 {
-            font-size: 28px;
-            font-weight: 600;
-            margin-bottom: 8px;
-        }
-
-        .page-header p {
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 14px;
-        }
-
-        .content-wrapper {
-            background: white;
-            border-radius: 0 0 12px 12px;
-            box-shadow: var(--shadow);
-            overflow: hidden;
-        }
-
-        .action-bar {
-            padding: 24px 32px;
-            background: #f8f9fa;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 16px;
-        }
-
-        .search-box {
-            display: flex;
-            align-items: center;
-            background: white;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 10px 16px;
-            flex: 1;
-            max-width: 400px;
-        }
-
-        .search-box i {
-            color: var(--text-secondary);
-            margin-right: 10px;
-        }
-
-        .search-box input {
-            border: none;
-            outline: none;
-            width: 100%;
-            font-size: 14px;
-        }
-
-        .btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .btn-primary {
-            background: var(--primary-color);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: var(--primary-dark);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(45, 122, 62, 0.3);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .btn-danger {
-            background: var(--danger-color);
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c82333;
-        }
-
-        .table-container {
-            padding: 32px;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        thead {
-            background: #f8f9fa;
-            border-bottom: 2px solid var(--border-color);
-        }
-
-        th {
-            padding: 16px;
-            text-align: left;
-            font-weight: 600;
-            color: var(--text-primary);
-            font-size: 14px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        td {
-            padding: 16px;
-            border-bottom: 1px solid var(--border-color);
-            color: var(--text-primary);
-        }
-
-        tbody tr {
-            transition: background 0.2s;
-        }
-
-        tbody tr:hover {
-            background: #f8f9fa;
-        }
-
-        .role-badge {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
-        }
-
-        .role-superadmin {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .role-admin {
-            background: #d1ecf1;
-            color: #0c5460;
-        }
-
-        .action-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .icon-btn {
-            width: 36px;
-            height: 36px;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s;
-            font-size: 14px;
-        }
-
-        .icon-btn.edit {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-
-        .icon-btn.edit:hover {
-            background: #1976d2;
-            color: white;
-        }
-
-        .icon-btn.delete {
-            background: #ffebee;
-            color: #c62828;
-        }
-
-        .icon-btn.delete:hover {
-            background: #c62828;
-            color: white;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 2000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            animation: fadeIn 0.3s;
-        }
-
-        .modal.show {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .modal-content {
-            background: white;
-            width: 90%;
-            max-width: 600px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.3s;
-            overflow: hidden;
-        }
-
-        .modal-header {
-            background: var(--primary-color);
-            color: white;
-            padding: 20px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .modal-header h3 {
-            font-size: 20px;
-            font-weight: 600;
-        }
-
-        .close {
-            font-size: 32px;
-            font-weight: 300;
-            cursor: pointer;
-            color: white;
-            transition: transform 0.2s;
-        }
-
-        .close:hover {
-            transform: rotate(90deg);
-        }
-
-        .modal-body {
-            padding: 32px 24px;
-            max-height: 70vh;
-            overflow-y: auto;
-        }
-
-        .form-group {
-            margin-bottom: 24px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 600;
-            color: var(--text-primary);
-            font-size: 14px;
-        }
-
-        .form-group input,
-        .form-group select {
-            width: 100%;
-            padding: 12px 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 14px;
-            transition: all 0.3s;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(45, 122, 62, 0.1);
-        }
-
-        .form-hint {
-            display: block;
-            margin-top: 6px;
-            font-size: 12px;
-            color: var(--text-secondary);
-        }
-
-        .required {
-            color: var(--danger-color);
-        }
-
-        .modal-footer {
-            padding: 20px 24px;
-            background: #f8f9fa;
-            border-top: 1px solid var(--border-color);
-            display: flex;
-            gap: 12px;
-            justify-content: flex-end;
-        }
-
-        .empty-state {
-            text-align: center;
-            padding: 60px 20px;
-            color: var(--text-secondary);
-        }
-
-        .empty-state i {
-            font-size: 64px;
-            margin-bottom: 20px;
-            color: var(--border-color);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        @keyframes slideUp {
-            from {
-                transform: translateY(50px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .action-bar {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .search-box {
-                max-width: 100%;
-            }
-
-            .table-container {
-                padding: 16px;
-            }
-
-            table {
-                font-size: 13px;
-            }
-
-            th, td {
-                padding: 12px 8px;
-            }
-        }
+@media (max-width: 760px) {
+    .directory-table { min-width: 580px; }
+    .account-directory { padding-inline: 12px; }
+}

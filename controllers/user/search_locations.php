@@ -3,7 +3,7 @@ header('Content-Type: application/json');
 require_once '../../models/functions.php';
 
 try {
-    $searchTerm = isset($_GET['term']) ? trim($_GET['term']) : '';
+    $searchTerm = is_string($_GET['term'] ?? null) ? mb_substr(trim($_GET['term']), 0, 120) : '';
     
     if (empty($searchTerm)) {
         echo json_encode(['success' => true, 'data' => [], 'count' => 0]);

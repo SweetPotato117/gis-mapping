@@ -9,6 +9,7 @@ if (!isset($_SESSION['admin_id'])) {
     exit;
 }
 
+$uploadedPaths = [];
 try {
     $locationId = isset($_POST['id']) ? (int)$_POST['id'] : null;
     
@@ -22,7 +23,8 @@ try {
     
     // Get the location to check ownership
     global $conn;
-    $query = "SELECT admin_id FROM places WHERE id = ?";
+    startTransaction();
+    $query = "SELECT admin_id, blur_services FROM places WHERE id = ? FOR UPDATE";
     $stmt = mysqli_prepare($conn, $query);
     mysqli_stmt_bind_param($stmt, "i", $locationId);
     mysqli_stmt_execute($stmt);
@@ -42,9 +44,6 @@ try {
         throw new Exception('You do not have permission to edit this location');
     }
     
-    // Start transaction
-    startTransaction();
-    
     // Validate required fields
     $requiredFields = ['name', 'type', 'description', 'lat', 'lng'];
     foreach ($requiredFields as $field) {
@@ -63,10 +62,12 @@ try {
         'lng' => floatval($_POST['lng']),
         'open_hours' => mysqli_real_escape_string($conn, $_POST['open_hours'] ?? ''),
         'contact' => mysqli_real_escape_string($conn, $_POST['contact'] ?? ''),
-        'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : 0
+        'blur_services' => isset($_POST['blur_services']) ? (int)$_POST['blur_services'] : (int)$location['blur_services']
     ];
     
     // Update the place
+    require_once __DIR__ . '/../../models/place_about.php';
+    $updateData += placeAboutWriteFields($_POST);
     $updated = updateRecord('places', $updateData, "id = $locationId");
     
     if (!$updated) {
@@ -85,7 +86,9 @@ try {
                     'type' => 'main',
                     'price' => floatval($menuItem['price'])
                 ];
-                insertRecord('menu', $menuData);
+                if (!insertRecord('menu', $menuData)) {
+                    throw new RuntimeException('Could not save a menu item.');
+                }
             }
         }
     }
@@ -104,12 +107,46 @@ try {
                     'place_id' => $locationId,
                     'link' => mysqli_real_escape_string($conn, $websiteUrl)
                 ];
-                insertRecord('website_url', $websiteData);
+                if (!insertRecord('website_url', $websiteData)) {
+                    throw new RuntimeException('Could not save a website.');
+                }
             }
         }
     }
     
-    // Commit transaction
+    $removedHighlights = $_POST['removed_highlights'] ?? [];
+    if ($removedHighlights) {
+        $remove = $conn->prepare('DELETE FROM highlights WHERE id = ? AND place_id = ?');
+        foreach ($removedHighlights as $highlightId) {
+            $highlightId = (int)$highlightId;
+            $remove->bind_param('ii', $highlightId, $locationId);
+            $remove->execute();
+        }
+    }
+
+    $uploads = $_FILES['highlights'] ?? [];
+    $imageTypes = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+    foreach ($uploads['error'] ?? [] as $index => $error) {
+        if ($error === UPLOAD_ERR_NO_FILE) continue;
+        if ($error !== UPLOAD_ERR_OK || $uploads['size'][$index] > 5 * 1024 * 1024) {
+            throw new RuntimeException('Could not upload a photo. The maximum size is 5 MB.');
+        }
+        $source = $uploads['tmp_name'][$index];
+        $extension = $imageTypes[(new finfo(FILEINFO_MIME_TYPE))->file($source)] ?? null;
+        if (!$extension) {
+            throw new RuntimeException('Choose a JPG, PNG, GIF, or WebP photo.');
+        }
+        $filename = bin2hex(random_bytes(16)) . '.' . $extension;
+        $path = __DIR__ . '/../../uploads/' . $filename;
+        if (!move_uploaded_file($source, $path)) {
+            throw new RuntimeException('Could not store the uploaded photo.');
+        }
+        $uploadedPaths[] = $path;
+        if (!insertRecord('highlights', ['place_id' => $locationId, 'image_url' => $filename])) {
+            throw new RuntimeException('Could not save the uploaded photo.');
+        }
+    }
+
     commitTransaction();
     
     echo json_encode([
@@ -118,8 +155,11 @@ try {
         'location_id' => $locationId
     ]);
     
-} catch (Exception $e) {
+} catch (Throwable $e) {
     rollbackTransaction();
+    foreach ($uploadedPaths as $path) {
+        unlink($path);
+    }
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

@@ -1,0 +1,137 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <symbol id="wifi" viewBox="0 0 24 24">
+    <path d="M2 8a16 16 0 0 1 20 0M5 12a11 11 0 0 1 14 0m-11 4a6 6 0 0 1 8 0"/>
+    <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/>
+  </symbol>
+  <symbol id="breakfast" viewBox="0 0 24 24">
+    <path d="M2 19h20M4 19a8 8 0 0 1 16 0M12 11V8m-1-2h2"/>
+  </symbol>
+  <symbol id="car" viewBox="0 0 24 24">
+    <path d="m4 11 2-5h12l2 5M3 17v-4l1-2h16l1 2v4H3Zm2 0v2h2v-2m10 0v2h2v-2M6 14h2m8 0h2"/>
+  </symbol>
+  <symbol id="pool" viewBox="0 0 24 24">
+    <path d="M8 16V5a2 2 0 0 1 4 0m2 11V5a2 2 0 0 1 4 0M8 9h6m-6 4h6M2 17q2.5-2 5 0t5 0t5 0t5 0M2 21q2.5-2 5 0t5 0t5 0t5 0"/>
+  </symbol>
+  <symbol id="accessible" viewBox="0 0 24 24">
+    <circle cx="11" cy="4" r="2"/>
+    <path d="m10 7 1 7h6l3 5h2M11 10h6M8 10a6 6 0 1 0 7 8"/>
+  </symbol>
+  <symbol id="air-conditioning" viewBox="0 0 24 24">
+    <rect x="2" y="4" width="20" height="9" rx="2"/>
+    <path d="M6 10h12M7 16q-2 1 0 2t0 2m5-4q-2 1 0 2t0 2m5-4q-2 1 0 2t0 2"/>
+  </symbol>
+  <symbol id="laundry" viewBox="0 0 24 24">
+    <rect x="4" y="2" width="16" height="20" rx="2"/>
+    <path d="M4 7h16M7 4.5h1m2 0h1"/>
+    <circle cx="12" cy="14" r="4"/>
+  </symbol>
+  <symbol id="room-service" viewBox="0 0 24 24">
+    <path d="M2 15h20M5 15a7 7 0 0 1 14 0m-7-7V6m-1-2h2M2 19l4-2 6 1 7-2 2 1-7 4a3 3 0 0 1-2 0l-6-1-4 2"/>
+  </symbol>
+  <symbol id="children" viewBox="0 0 24 24">
+    <circle cx="7" cy="9" r="3"/>
+    <circle cx="17" cy="9" r="3"/>
+    <path d="M2 20a5 5 0 0 1 10 0 5 5 0 0 1 10 0M3 9l2-4m16 4-2-4"/>
+  </symbol>
+  <symbol id="utensils" viewBox="0 0 24 24">
+    <path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18m11 0V3a5 5 0 0 0-4 5v5h4"/>
+  </symbol>
+  <symbol id="shuttle" viewBox="0 0 24 24">
+    <path d="M3 17H2V6h14l5 5v6h-2m-4 0H8M5 6v5h4V6m3 0v5h4V6m0 5h5"/>
+    <circle cx="6" cy="17" r="2"/>
+    <circle cx="17" cy="17" r="2"/>
+  </symbol>
+  <symbol id="fitness" viewBox="0 0 24 24">
+    <path d="M1 12h3m5 0h6m5 0h3"/>
+    <rect x="4" y="6" width="5" height="12" rx="1.5"/>
+    <rect x="15" y="6" width="5" height="12" rx="1.5"/>
+  </symbol>
+  <symbol id="bar" viewBox="0 0 24 24">
+    <path d="M3 4h18l-9 10L3 4Zm9 10v6m-4 0h8M7 8h10"/>
+  </symbol>
+  <symbol id="no-smoking" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="m5 5 14 14M5 14h8v3H5zm11 0v3m3-5c0-1-1-2-2-2s-2-1-2-2m2 6v3"/>
+  </symbol>
+  <symbol id="no-pets" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="m5 5 14 14m-9-3a1.7 1.7 0 0 1-1-3l1.4-1.2a2.4 2.4 0 0 1 3.2 0l1.4 1.2a1.7 1.7 0 0 1-1 3l-2-.5-2 .5Z"/>
+    <path d="M7.5 10h.01M10.5 8h.01M13.5 8h.01M16.5 10h.01" stroke-width="2.6"/>
+  </symbol>
+  <symbol id="no-outside-food" viewBox="0 0 24 24">
+    <circle cx="12" cy="12" r="10"/>
+    <path d="m5 5 14 14M6 10h6l-1 7H7l-1-7Zm3 0 1-3h2m1 7a3 3 0 0 1 6 0h-6Zm0 2h6m-6 2h6"/>
+  </symbol>
+  <symbol id="takeout" viewBox="0 0 24 24">
+    <path d="m5 8 2 13h10l2-13H5Zm4 0V6a3 3 0 0 1 6 0v2m-7 5h8"/>
+  </symbol>
+  <symbol id="delivery" viewBox="0 0 24 24">
+    <path d="M3 6h12v11H3zM15 10h3l3 4v3h-6"/><circle cx="7" cy="18" r="2"/><circle cx="18" cy="18" r="2"/>
+  </symbol>
+  <symbol id="calendar-check" viewBox="0 0 24 24">
+    <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M7 3v4m10-4v4M3 10h18m-13 5 3 3 5-5"/>
+  </symbol>
+  <symbol id="restroom" viewBox="0 0 24 24">
+    <circle cx="7" cy="5" r="2"/><circle cx="17" cy="5" r="2"/><path d="M12 3v18M4 15v-3a3 3 0 0 1 6 0v3m-4 0v6m2-6v6m8-1v-5h-2l2-5h2l2 5h-2v5"/>
+  </symbol>
+  <symbol id="charging" viewBox="0 0 24 24">
+    <path d="M13 2 5 13h6l-1 9 9-12h-7z"/>
+  </symbol>
+  <symbol id="paw" viewBox="0 0 24 24">
+    <path d="M6 17c0-2 4-6 6-6s6 4 6 6c0 2-2 3-4 2l-2-1-2 1c-2 1-4 0-4-2Z"/><circle cx="5" cy="9" r="1.5"/><circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="19" cy="9" r="1.5"/>
+  </symbol>
+  <symbol id="smoking-area" viewBox="0 0 24 24">
+    <path d="M3 14h14v4H3zm17 0v4m-1-7c0-2-3-2-3-4s2-2 2-4m3 7c0-2-1-2-1-3"/>
+  </symbol>
+  <symbol id="television" viewBox="0 0 24 24">
+    <rect x="3" y="4" width="18" height="13" rx="2"/><path d="M12 17v3m-5 0h10"/>
+  </symbol>
+  <symbol id="room-safe" viewBox="0 0 24 24">
+    <rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="11" cy="12" r="3"/><path d="M17 9v6m-6-5v4m-2-2h4"/>
+  </symbol>
+  <symbol id="refrigerator" viewBox="0 0 24 24">
+    <rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 9h14M8 5v2m0 5v3"/>
+  </symbol>
+  <symbol id="water-drop" viewBox="0 0 24 24">
+    <path d="M12 2c3 5 7 9 7 13a7 7 0 0 1-14 0c0-4 4-8 7-13Zm0 17a4 4 0 0 1-4-4"/>
+  </symbol>
+  <symbol id="microphone" viewBox="0 0 24 24">
+    <rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2m-7 9v3m-4 0h8"/>
+  </symbol>
+  <symbol id="coffee-cup" viewBox="0 0 24 24">
+    <path d="M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V9Zm12 1h3a2 2 0 0 1 0 4h-3M3 22h17M8 6V3m4 3V2"/>
+  </symbol>
+  <symbol id="outdoor-table" viewBox="0 0 24 24">
+    <path d="M3 10a9 8 0 0 1 18 0H3Zm9-8v19m-7-6h14m-12 0-2 6m12-6 2 6"/>
+  </symbol>
+  <symbol id="security-shield" viewBox="0 0 24 24">
+    <path d="m12 3 8 3v6c0 5-4 8-8 10-4-2-8-5-8-10V6l8-3Zm-4 9 3 3 5-5"/>
+  </symbol>
+  <symbol id="briefcase" viewBox="0 0 24 24">
+    <rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V4h8v3M3 12l9 3 9-3m-9 1v4"/>
+  </symbol>
+  <symbol id="spa" viewBox="0 0 24 24">
+    <path d="M12 18C5 18 2 13 2 8c5 0 8 2 10 6 2-4 5-6 10-6 0 5-3 10-10 10Zm-4-8c0-4 4-8 4-8s4 4 4 8m-9 11h10"/>
+  </symbol>
+  <symbol id="bonsai" viewBox="0 0 24 24">
+    <path d="M12 17V9m0 4-4-3m4 0 4-3m-9 3H5a3 3 0 0 1 0-6h4a4 4 0 0 1 7-1h3a3 3 0 0 1 0 6h-3M6 17h12l-2 5H8z"/>
+  </symbol>
+  <symbol id="farm-stay" viewBox="0 0 24 24">
+    <path d="m2 11 10-8 10 8M5 9v12h14V9m-11 12v-8h8v8m-8-8 8 8m0-8-8 8"/>
+  </symbol>
+  <symbol id="museum" viewBox="0 0 24 24">
+    <path d="m2 8 10-5 10 5H2Zm3 3v7m5-7v7m4-7v7m5-7v7M3 21h18"/>
+  </symbol>
+  <symbol id="mushroom" viewBox="0 0 24 24">
+    <path d="M3 13a9 9 0 0 1 18 0H3Zm7 0-1 6a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2l-1-6M8 9h.01m7-2h.01m2 4h.01"/>
+  </symbol>
+  <symbol id="horseback" viewBox="0 0 24 24">
+    <path d="M5 21c1-5 2-9 5-13L8 4l5 1 3-3 1 5 4 5-3 3-4-3-2 4 3 5H5Zm11-11h.01"/>
+  </symbol>
+  <symbol id="bicycle" viewBox="0 0 24 24">
+    <circle cx="5" cy="16" r="4"/><circle cx="19" cy="16" r="4"/><path d="m5 16 4-8 4 8H5m8 0 4-7m2 7-3-12h-3M7 8h4"/>
+  </symbol>
+  <symbol id="camera" viewBox="0 0 24 24">
+    <path d="M3 7h5l2-3h4l2 3h5v13H3z"/><circle cx="12" cy="13" r="3"/>
+  </symbol>
+</svg>

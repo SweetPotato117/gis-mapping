@@ -1,0 +1,185 @@
+.map-admin {
+    --primary-color: #096b64;
+    --primary-dark: #07534e;
+    --success-color: #096b64;
+    --text-primary: #172b32;
+    --text-secondary: #52686f;
+    --border-color: #dce7e7;
+    --admin-canvas: #f1f6f5;
+    --admin-accent-soft: #e0f3ed;
+    --admin-shadow: 0 4px 18px rgb(25 54 61 / 18%);
+    height: 100dvh;
+    background: var(--admin-canvas);
+    color: var(--text-primary);
+}
+
+.map-admin .main-content {
+    display: grid;
+    grid-template-columns: clamp(360px, 35vw, 480px) minmax(0, 1fr);
+    min-height: 0;
+    height: auto;
+    padding: 0;
+}
+
+.map-admin .admin-panel {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    max-width: none;
+    min-height: 0;
+    max-height: none;
+    padding: 0;
+    background: var(--admin-canvas);
+    box-shadow: none;
+    border-right: 1px solid var(--border-color);
+    border-radius: 0;
+    transform: none;
+    transition: none;
+    z-index: auto;
+}
+
+.map-admin .panel-header {
+    padding: 18px 20px 10px;
+    border: 0;
+    background: white;
+    color: var(--text-primary);
+}
+
+.map-admin .panel-header h2 { margin-bottom: 3px; font-size: 23px; line-height: 1.15; }
+.map-admin .panel-header p,
+.map-admin .editor-hint { color: var(--text-secondary); font-size: 13px; line-height: 1.4; }
+
+.map-admin .tab-navigation { padding: 0 12px; background: white; border-bottom: 1px solid var(--border-color); }
+.map-admin .tab-btn { flex: 1; min-width: 0; min-height: 44px; margin: 0; padding: 8px 4px; color: var(--text-secondary); font-size: 14px; font-weight: 650; }
+.map-admin .tab-btn i { font-size: 13px; }
+.map-admin .tab-btn.active { color: var(--primary-color); }
+.map-admin .tab-content { min-height: 0; padding: 14px; background: transparent; scrollbar-gutter: stable; overscroll-behavior-y: contain; }
+
+.map-admin .editor-card,
+.map-admin .place-about-options {
+    margin: 0 0 12px;
+    padding: 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: white;
+}
+
+.map-admin .editor-card h3 { margin-bottom: 10px; font-size: 15px; line-height: 1.3; }
+.map-admin .editor-card h3 i,
+.map-admin .service-visibility strong i,
+.map-admin .services-notice i { color: var(--primary-color); margin-right: 5px; }
+.map-admin .editor-card .editor-hint { margin: 0 0 10px; }
+.map-admin .editor-card .form-group { min-width: 0; margin-bottom: 12px; }
+.map-admin .editor-card .form-group:last-child { margin-bottom: 0; }
+.map-admin .form-group label { margin-bottom: 5px; color: var(--text-primary); font-size: 13px; font-weight: 650; }
+.map-admin .form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-bottom: 12px; }
+.map-admin .form-row .form-group { margin-bottom: 0; }
+
+.map-admin .editor-card :is(input:not([type="checkbox"], [type="hidden"]), select, textarea) {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    padding: 9px 11px;
+    border: 1px solid #cbdad9;
+    border-radius: 10px;
+    background: #fbfdfc;
+    color: var(--text-primary);
+    font: inherit;
+    font-size: 15px;
+}
+
+.map-admin .editor-card textarea { display: block; resize: vertical; }
+.map-admin .editor-card select { appearance: auto; }
+.map-admin .editor-card :is(input, select, textarea):focus { outline: 2px solid var(--primary-color); outline-offset: -1px; }
+.map-admin .owner-picker { position: relative; }
+.map-admin .owner-picker .editor-hint { margin: 6px 0 0; }
+.map-admin .owner-picker .search-results {
+    position: absolute;
+    z-index: 2;
+    inset: 66px 0 auto;
+    max-height: 160px;
+    overflow: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    box-shadow: var(--admin-shadow);
+    background: white;
+    color: var(--text-secondary);
+}
+.map-admin .search-result-item { width: 100%; min-height: 44px; padding: 9px 12px; text-align: left; border: 0; background: white; color: var(--text-primary); cursor: pointer; }
+.map-admin .search-result-item:hover { background: var(--admin-accent-soft); }
+
+.map-admin .service-visibility { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; }
+.map-admin .service-visibility strong { display: block; margin-bottom: 3px; font-size: 14px; }
+.map-admin .service-visibility .editor-hint { display: block; margin: 0; }
+.map-admin .service-visibility input { width: 20px; height: 20px; flex: none; accent-color: var(--primary-color); }
+.map-admin .services-notice { color: var(--text-secondary); font-size: 14px; line-height: 1.4; }
+.map-admin .service-section { margin: 0; padding: 0; border: 0; background: transparent; }
+.map-admin .website-item { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 6px; margin-bottom: 6px; padding: 0; }
+.map-admin .menu-item { display: grid; grid-template-columns: minmax(0, 1fr) minmax(70px, .45fr) 44px; gap: 6px; margin-bottom: 6px; padding: 0; border: 0; }
+.map-admin .editor-card :is(.btn-remove-website, .btn-remove) { width: 44px; min-height: 44px; border-radius: 9px; background: #fbecec; color: #9e352f; }
+.map-admin .editor-card .btn-secondary { min-height: 44px; margin: 2px 0 0; padding: 8px 11px; border-radius: 9px; color: var(--primary-dark); background: var(--admin-accent-soft); }
+.map-admin .editor-card input.editor-file-input { padding: 8px; border-style: dashed; }
+.map-admin .editor-file-input::file-selector-button { padding: 7px 10px; border: 0; border-radius: 7px; color: var(--primary-dark); background: var(--admin-accent-soft); cursor: pointer; }
+.map-admin .photo-preview:empty { display: none; }
+.map-admin .about-help { margin: 0 2px 10px; }
+.map-admin .place-about-fields { gap: 8px; margin: 0; }
+.map-admin .place-about-options { margin: 0; }
+.map-admin .place-about-options label { border-radius: 8px; padding: 0 6px; background: #f3f8f7; font-size: 13px; }
+
+.map-admin .action-buttons { position: static; flex: none; margin: 0; padding: 10px 14px; gap: 8px; border-top: 1px solid var(--border-color); background: white; }
+.map-admin .editor-status:not(:empty) { flex: none; padding: 8px 14px; background: var(--admin-accent-soft); color: var(--primary-dark); font-size: 13px; }
+.map-admin .editor-status[data-error]:not(:empty) { background: #fbecec; color: #9e352f; }
+.map-admin .action-buttons .btn { min-height: 44px; padding: 8px; border-radius: 10px; }
+.map-admin #saveLocation { flex: 2; background: var(--primary-color); }
+.map-admin #saveLocation:hover { background: var(--primary-dark); }
+.map-admin #clearForm { background: var(--admin-accent-soft); color: var(--primary-dark); }
+
+.map-admin .admin-map-workspace { position: relative; min-width: 0; min-height: 0; }
+.map-admin #map { position: relative !important; inset: auto !important; height: 100% !important; background: #e8eeea; }
+.map-admin .admin-map-toolbar { position: absolute; z-index: 750; inset: 14px auto auto 14px; display: grid; gap: 8px; width: min(360px, calc(100% - 28px)); pointer-events: none; }
+.map-admin .admin-map-toolbar .filter-buttons-container,
+.map-admin .admin-map-toolbar .floating-search-container { position: relative !important; inset: auto !important; width: 100%; margin: 0; }
+.map-admin .admin-map-toolbar .floating-search-container { grid-row: 1; z-index: 2; }
+.map-admin .admin-map-toolbar .filter-buttons-container { z-index: 1; justify-content: flex-start; }
+.map-admin .floating-search-bar { min-height: 46px; padding: 0 9px 0 13px; border-radius: 13px; background: white; box-shadow: var(--admin-shadow); }
+.map-admin .floating-search-bar .search-input { min-width: 0; color: var(--text-primary); font-size: 16px; }
+.map-admin .floating-search-bar .search-icon,
+.map-admin .floating-search-bar .search-input::placeholder { color: var(--text-secondary); }
+.map-admin .autocomplete-suggestions { max-height: min(35dvh, 240px); border-color: var(--border-color); border-radius: 12px; background: white; box-shadow: var(--admin-shadow); }
+.map-admin .autocomplete-item { border-color: var(--border-color); }
+.map-admin .autocomplete-item:hover,
+.map-admin .autocomplete-item.autocomplete-active { background: var(--admin-accent-soft); }
+.map-admin .suggestion-name { color: var(--text-primary); }
+.map-admin .suggestion-details { color: var(--text-secondary); }
+.map-admin .filter-btn { pointer-events: auto; min-height: 39px; padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 11px; box-shadow: var(--admin-shadow); font-size: 13px; }
+.map-admin .filter-btn i { color: var(--primary-color); }
+.map-admin .filter-btn.active { background: #173c43; color: white; border-color: #173c43; }
+.map-admin .filter-btn.active i { color: #9ee7d1; }
+
+.map-admin .leaflet-popup-content-wrapper { border-radius: 16px; box-shadow: var(--admin-shadow); }
+.map-admin .popup-btn { min-height: 38px; border-radius: 9px; background: var(--primary-color); }
+
+.map-admin .modal { background: rgb(18 39 48 / 36%); }
+.map-admin .modal-content.google-style { border-radius: 20px; max-height: 92dvh; }
+.map-admin .modal-header-cover { flex: 0 0 clamp(120px, 23dvh, 200px); }
+.map-admin .modal-title-section { display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 4px; padding: 15px 18px 9px; border: 0; }
+.map-admin .location-type-badge { padding: 0; background: none; }
+.map-admin .google-tabs { padding: 0 10px; flex: none; }
+.map-admin .google-tab { flex: 1; min-height: 44px; padding: 7px 5px; letter-spacing: 0; }
+.map-admin .modal-body-google { min-height: 0; max-height: none; padding: 16px 18px; }
+
+.map-admin :is(button, a):focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+
+@media (max-width: 767px) {
+    .map-admin .main-content { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(145px, 31dvh) minmax(0, 1fr); }
+    .map-admin .admin-map-workspace { grid-row: 1; }
+    .map-admin .admin-panel { border: 0; border-top: 1px solid var(--border-color); }
+    .map-admin .admin-map-toolbar { inset: 8px auto auto 8px; width: min(360px, calc(100% - 16px)); gap: 5px; }
+    .map-admin .panel-header { padding: 10px 14px 6px; }
+    .map-admin .panel-header h2 { font-size: 19px; }
+    .map-admin .tab-content { padding: 10px; }
+    .map-admin .editor-card :is(input:not([type="checkbox"], [type="hidden"]), select, textarea) { font-size: 16px; }
+    .map-admin .action-buttons { padding: 7px 10px max(7px, env(safe-area-inset-bottom)); }
+    .map-admin .leaflet-tooltip.location-label { max-width: 105px; font-size: 11px; }
+    .map-admin .modal-content.google-style { position: absolute; inset: auto 0 0; width: 100%; max-width: none; margin: 0; border-radius: 20px 20px 0 0; }
+}

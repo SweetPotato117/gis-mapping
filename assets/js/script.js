@@ -5,13 +5,14 @@ document.getElementById('addMenuItem')?.addEventListener('click', () => {
     const menuItem = document.createElement('div');
     menuItem.className = 'menu-item';
     menuItem.innerHTML = `
-        <input type="text" placeholder="Item name" class="menu-name" name="menu_name[]">
-        <input type="number" step="0.01" placeholder="Price" class="menu-price" name="menu_price[]">
-        <button type="button" class="btn-remove" onclick="removeMenuItem(this)">
+        <input type="text" placeholder="Item name" class="menu-name" name="menu_name[]" aria-label="Menu item name">
+        <input type="number" step="0.01" placeholder="Price" class="menu-price" name="menu_price[]" aria-label="Menu item price">
+        <button type="button" class="btn-remove" onclick="removeMenuItem(this)" aria-label="Remove menu item">
             <i class="fas fa-trash"></i>
         </button>
     `;
     menuList.appendChild(menuItem);
+    if (document.body.classList.contains('map-admin')) menuItem.querySelector('input').focus();
 });
 
 // Remove menu item
@@ -33,18 +34,19 @@ document.querySelectorAll('.add-website-btn').forEach(btn => {
         if (!serviceSection) return;
         
         // Find the websitesList within this section
-        const list = serviceSection.querySelector('#websitesList');
+        const list = serviceSection.querySelector('[data-website-list], #websitesList');
         if (!list) return;
         
         const item = document.createElement('div');
         item.className = 'website-item';
         item.innerHTML = `
-            <input type="url" class="website-input" name="websites[]" placeholder="https://website.com">
-            <button type="button" class="btn-remove-website" onclick="removeWebsite(this)">
+            <input type="url" class="website-input" name="websites[]" aria-label="Website or social media URL" placeholder="https://website.com">
+            <button type="button" class="btn-remove-website" onclick="removeWebsite(this)" aria-label="Remove website">
                 <i class="fas fa-trash"></i>
             </button>
         `;
         list.appendChild(item);
+        if (document.body.classList.contains('map-admin')) item.querySelector('input').focus();
     });
 });
 
@@ -55,9 +57,30 @@ window.removeWebsite = function(btn) {
 };
 
 // Save location
+function setLocationSaveStatus(message, isError = false) {
+    const status = document.getElementById('locationSaveStatus');
+    if (!status) {
+        if (message) alert(message);
+        return;
+    }
+    status.textContent = message;
+    status.toggleAttribute('data-error', isError);
+}
+
 document.getElementById('saveLocation')?.addEventListener('click', async () => {
+    setLocationSaveStatus('');
     const placeIdEl = document.getElementById('placeId');
     const idVal = placeIdEl ? placeIdEl.value : null;
+
+    if (document.body.classList.contains('map-admin')) {
+        const invalid = document.querySelector('#locationForm :invalid, #description:invalid, .service-section[style*="display: block"] .website-input:invalid');
+        if (invalid) {
+            const tab = invalid.closest('.tab-pane')?.id;
+            document.querySelector('.tab-btn[data-tab="' + tab + '"]')?.click();
+            invalid.reportValidity();
+            return;
+        }
+    }
     
     // Collect basic form data
     const locationData = {
@@ -99,7 +122,7 @@ document.getElementById('saveLocation')?.addEventListener('click', async () => {
     // Collect websites from the visible service section
     const visibleServiceSection = document.querySelector('.service-section[style*="display: block"], .service-section[style=""]');
     if (visibleServiceSection) {
-        const websiteInputs = visibleServiceSection.querySelectorAll('#websitesList .website-input');
+        const websiteInputs = visibleServiceSection.querySelectorAll('.website-input');
         websiteInputs.forEach(inp => {
             const value = inp.value.trim();
             if (value) {
@@ -123,7 +146,7 @@ document.getElementById('saveLocation')?.addEventListener('click', async () => {
     }
 
     // Collect photos if available
-    if (photoInputId) {
+    if (photoInputId && !locationData.id) {
         const photoInput = document.getElementById(photoInputId);
         if (photoInput && photoInput.files.length > 0) {
             const files = Array.from(photoInput.files);
@@ -141,34 +164,43 @@ document.getElementById('saveLocation')?.addEventListener('click', async () => {
 
     // Update or add location (send to server)
     if (locationData.id) {
-        // Update existing
+        const saveButton = document.getElementById('saveLocation');
+        saveButton.disabled = true;
         try {
-            console.log('Updated location:', locationData.id);
             const json = await window.submitUpdateLocation(locationData);
             
             if (!json || !json.success) {
-                alert('Error updating location: ' + (json?.error || 'Unknown'));
+                setLocationSaveStatus('Error updating location: ' + (json?.message || json?.error || 'Unknown'), true);
                 return;
             }
-            alert(json.message || 'Location updated successfully!');
-
-           window.location.href = "edit_location.php?id=" + locationData.id;
-           
-       
+            if (placeIdEl.value === String(locationData.id) && photoInputId) {
+                document.getElementById(photoInputId).value = '';
+            }
+            try {
+                await window.refreshEditedLocation(locationData.id);
+            } catch (refreshError) {
+                console.error('Unable to refresh saved location', refreshError);
+                setLocationSaveStatus('Location updated. Reload the dashboard to see the latest details.');
+                return;
+            }
+            setLocationSaveStatus(json.message || 'Location updated successfully!');
         } catch (err) {
             console.error('Update error', err);
-            alert('Failed to update location. See console for details.');
+            setLocationSaveStatus('Failed to update location. See console for details.', true);
+        } finally {
+            saveButton.disabled = false;
         }
     } else {
         // Insert new location
         try {
             const json = await window.submitNewLocation(locationData);
             if (!json || !json.success) {
-                alert('Error saving location: ' + (json?.error || 'Unknown'));
+                setLocationSaveStatus('Error saving location: ' + (json?.error || 'Unknown'), true);
                 return;
             }
 
             locationData.id = json.place_id || (locations.length > 0 ? Math.max(...locations.map(l => l.id)) + 1 : 1);
+            if (document.body.classList.contains('map-admin')) locationData.is_owner = true;
             if (json.url) {
                 try {
                     const parsed = JSON.parse(json.url);
@@ -183,7 +215,7 @@ document.getElementById('saveLocation')?.addEventListener('click', async () => {
             locations.push(locationData);
             addLocationMarker(locationData, locations.length - 1);
 
-            alert(json.message || 'Location saved successfully!');
+            setLocationSaveStatus(json.message || 'Location saved successfully!');
             console.log('Saved location:', locationData);
 
             if (currentMarker) {
@@ -193,17 +225,21 @@ document.getElementById('saveLocation')?.addEventListener('click', async () => {
             clearForm();
         } catch (err) {
             console.error('Save error', err);
-            alert('Failed to save location. See console for details.');
+            setLocationSaveStatus('Failed to save location. See console for details.', true);
         }
     }
 });
 
 // Clear form
-document.getElementById('clearForm')?.addEventListener('click', clearForm);
+document.getElementById('clearForm')?.addEventListener('click', () => {
+    setLocationSaveStatus('');
+    clearForm();
+});
 
 function clearForm() {
     const form = document.getElementById('locationForm');
     if (form) form.reset();
+    form?.querySelectorAll('[name="removed_highlights[]"]').forEach(field => field.remove());
     
     const placeIdEl = document.getElementById('placeId');
     if (placeIdEl) placeIdEl.value = '';
@@ -218,9 +254,9 @@ function clearForm() {
     if (menuList) {
         menuList.innerHTML = `
             <div class="menu-item">
-                <input type="text" placeholder="Item name" class="menu-name" name="menu_name[]">
-                <input type="number" step="0.01" placeholder="Price" class="menu-price" name="menu_price[]">
-                <button type="button" class="btn-remove" onclick="removeMenuItem(this)">
+                <input type="text" placeholder="Item name" class="menu-name" name="menu_name[]" aria-label="Menu item name">
+                <input type="number" step="0.01" placeholder="Price" class="menu-price" name="menu_price[]" aria-label="Menu item price">
+                <button type="button" class="btn-remove" onclick="removeMenuItem(this)" aria-label="Remove menu item">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -240,11 +276,11 @@ function clearForm() {
     });
 
     // Reset ALL website lists (in all service sections)
-    document.querySelectorAll('#websitesList').forEach(list => {
+    document.querySelectorAll('[data-website-list], #websitesList').forEach(list => {
         list.innerHTML = `
             <div class="website-item">
-                <input type="url" class="website-input" name="websites[]" placeholder="https://website.com">
-                <button type="button" class="btn-remove-website" onclick="removeWebsite(this)">
+                <input type="url" class="website-input" name="websites[]" aria-label="Website or social media URL" placeholder="https://website.com">
+                <button type="button" class="btn-remove-website" onclick="removeWebsite(this)" aria-label="Remove website">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -363,43 +399,41 @@ function setupImagePreviews() {
         const preview = document.getElementById(config.previewId);
         if (input && preview) {
             input.addEventListener('change', (e) => {
-                displayImagePreviews(e.target.files, preview);
+                displayImagePreviews(e.target, preview);
             });
         }
     });
 }
 
 // Display image previews with remove functionality
-function displayImagePreviews(files, previewContainer) {
-    if (!previewContainer || !files || files.length === 0) return;
-    
-    previewContainer.innerHTML = '';
-    
-    Array.from(files).forEach((file, index) => {
+function displayImagePreviews(input, previewContainer) {
+    previewContainer.querySelectorAll('.preview-img-wrapper:not(.existing-photo-preview)').forEach(preview => preview.remove());
+    Array.from(input.files).forEach((file, index) => {
         if (file.type.startsWith('image/')) {
             const reader = new FileReader();
-            
-            reader.onload = (ev) => {
-                const imgWrapper = document.createElement('div');
-                imgWrapper.className = 'preview-img-wrapper';
-                
-                const img = document.createElement('img');
-                img.src = ev.target.result;
-                img.alt = 'Preview image';
-                
-                const removeBtn = document.createElement('button');
-                removeBtn.type = 'button';
-                removeBtn.className = 'preview-remove-btn';
-                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
-                removeBtn.onclick = function() {
-                    imgWrapper.remove();
-                };
-                
-                imgWrapper.appendChild(img);
-                imgWrapper.appendChild(removeBtn);
-                previewContainer.appendChild(imgWrapper);
-            };
-            
+            const imgWrapper = document.createElement('div');
+            imgWrapper.className = 'preview-img-wrapper';
+            const img = document.createElement('img');
+            img.alt = file.name;
+            reader.onload = () => { img.src = reader.result; };
+
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'preview-remove-btn';
+            removeBtn.setAttribute('aria-label', `Remove ${file.name}`);
+            removeBtn.innerHTML = '<i class="fas fa-times" aria-hidden="true"></i>';
+            removeBtn.addEventListener('click', () => {
+                const remaining = new DataTransfer();
+                Array.from(input.files).forEach((selected, selectedIndex) => {
+                    if (selectedIndex !== index) remaining.items.add(selected);
+                });
+                input.files = remaining.files;
+                displayImagePreviews(input, previewContainer);
+                input.focus();
+            });
+
+            imgWrapper.append(img, removeBtn);
+            previewContainer.append(imgWrapper);
             reader.readAsDataURL(file);
         }
     });
@@ -425,8 +459,18 @@ function applyModalServiceBlur(shouldBlur) {
     if (menuContent) {
         if (shouldBlur) {
             menuContent.classList.add('service-blurred');
+            // Add message overlay
+            if (!menuContent.querySelector('.blur-message')) {
+                const message = document.createElement('div');
+                message.className = 'blur-message';
+                message.textContent = 'For further information, kindly refer to their official website.';
+                menuContent.appendChild(message);
+            }
         } else {
             menuContent.classList.remove('service-blurred');
+            // Remove message overlay
+            const message = menuContent.querySelector('.blur-message');
+            if (message) message.remove();
         }
     }
     
@@ -435,8 +479,18 @@ function applyModalServiceBlur(shouldBlur) {
     if (photosGallery) {
         if (shouldBlur) {
             photosGallery.classList.add('service-blurred');
+            // Add message overlay
+            if (!photosGallery.querySelector('.blur-message')) {
+                const message = document.createElement('div');
+                message.className = 'blur-message';
+                message.textContent = 'For further information, kindly refer to their official website.';
+                photosGallery.appendChild(message);
+            }
         } else {
             photosGallery.classList.remove('service-blurred');
+            // Remove message overlay
+            const message = photosGallery.querySelector('.blur-message');
+            if (message) message.remove();
         }
     }
 }

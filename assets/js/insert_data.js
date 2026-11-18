@@ -5,6 +5,13 @@ window.submitNewLocation = async function(locationData) {
     formData.append('name', locationData.name);
     formData.append('type', locationData.type);
     formData.append('description', locationData.description);
+    const inputs = new FormData(document.getElementById('locationForm'));
+    const ownerId = inputs.get('admin');
+    if (ownerId) formData.append('store_admin_id', ownerId);
+    formData.append('place_about', JSON.stringify({
+        amenities: inputs.getAll('amenities[]'),
+        house_rules: inputs.getAll('house_rules[]')
+    }));
     formData.append('address', locationData.address);
     formData.append('lat', locationData.lat);
     formData.append('lng', locationData.lng);
